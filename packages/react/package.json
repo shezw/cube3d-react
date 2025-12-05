@@ -1,0 +1,36 @@
+{
+  "name": "@cube3d/react",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.tsx --format esm,cjs --dts --external react,react-dom",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.0",
+    "eslint": "^9.14.0",
+    "tsup": "^8.0.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@cube3d/core": "workspace:*",
+    "@cube3d/css-renderer": "workspace:*"
+  }
+}

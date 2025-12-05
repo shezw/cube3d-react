@@ -1,0 +1,13 @@
+{
+  "name": "cube3d-react-workspace",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Monorepo workspace for a generic React 3D-ish library built on CSS transforms.",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --filter @cube3d/react-example dev",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test"
+  }
+}
