@@ -1,170 +1,269 @@
-import React, { createContext, useContext, useMemo, useRef, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
-import type { Vec3, Size3, MaterialSolid, Cube as CoreCube } from '@cube3d/core';
-import { Cube } from '@cube3d/core';
-import { keyframesToCss, ensureStyle, easingToCss } from '@cube3d/css-renderer';
+import React, {
+  createContext,
+  forwardRef,
+  useContext,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+import type {
+  AnimationOptions,
+  CubeFace,
+  FaceDirection,
+  Keyframes,
+  MaterialImage,
+  MaterialSolid,
+  PartialTransform3D,
+  Size2,
+  Size3,
+  Vec3,
+} from '@cube3d/core';
+import { createCubeFaces, materialToCss, transformToCss } from '@cube3d/core';
+import { easingToCss, ensureStyle, keyframesToCss } from '@cube3d/css-renderer';
 
 export type Scene3DProps = {
   children?: React.ReactNode;
   perspective?: number;
-  origin?: string; // e.g. '50% 50%'
-  reducedMotion?: boolean;
+  origin?: string;
+  className?: string;
+  style?: React.CSSProperties;
 };
 
-type SceneCtx = { perspective?: number; origin?: string; reducedMotion?: boolean };
-const SceneContext = createContext<SceneCtx>({});
-export function useScene3D() { return useContext(SceneContext); }
+type SceneContextValue = {
+  perspective: number;
+  origin: string;
+};
 
-export function Scene3D({ children, perspective, origin, reducedMotion }: Scene3DProps) {
-  const ctx = useMemo(() => ({ perspective, origin, reducedMotion }), [perspective, origin, reducedMotion]);
-  const style: React.CSSProperties = useMemo(() => ({
-    perspective: perspective ? `${perspective}px` : undefined,
-    perspectiveOrigin: origin,
-    transformStyle: 'preserve-3d'
-  }), [perspective, origin]);
+const SceneContext = createContext<SceneContextValue>({
+  perspective: 900,
+  origin: '50% 50%',
+});
+
+export function useScene3D(): SceneContextValue {
+  return useContext(SceneContext);
+}
+
+export function Scene3D({
+  children,
+  perspective = 900,
+  origin = '50% 50%',
+  className,
+  style,
+}: Scene3DProps) {
+  const value = useMemo(() => ({ perspective, origin }), [perspective, origin]);
+
   return (
-    <SceneContext.Provider value={ctx}>
-      <div style={style}>{children}</div>
+    <SceneContext.Provider value={value}>
+      <div
+        className={className}
+        style={{
+          position: 'relative',
+          perspective: `${perspective}px`,
+          perspectiveOrigin: origin,
+          transformStyle: 'preserve-3d',
+          overflow: 'visible',
+          ...style,
+        }}
+      >
+        {children}
+      </div>
     </SceneContext.Provider>
   );
 }
 
 export type NodeHandle = {
-  animate: (name: string, frames: Parameters<typeof keyframesToCss>[1], options?: { duration?: number; easing?: string }) => void;
+  animate: (name: string, frames: Keyframes, options?: AnimationOptions) => void;
   getElement: () => HTMLDivElement | null;
 };
 
-export type Group3DProps = {
+export type TransformProps = PartialTransform3D & {
+  position?: Partial<Vec3>;
+  rotation?: Partial<Vec3>;
+  scale?: Partial<Vec3>;
+};
+
+export type Group3DProps = TransformProps & {
   children?: React.ReactNode;
-  size?: Size3;
-  position?: Vec3;
-  rotation?: Vec3;
-  scale?: Vec3;
   className?: string;
   style?: React.CSSProperties;
+  size?: Partial<Size3>;
+  origin?: string;
 };
 
 export const Group3D = forwardRef<NodeHandle, Group3DProps>(function Group3D(
-  { children, className, style, position, rotation, scale }: Group3DProps,
-  ref: React.Ref<NodeHandle>
+  { children, className, style, size, origin = '50% 50%', position, rotation, scale },
+  ref,
 ) {
   const elRef = useRef<HTMLDivElement>(null);
-  const rotRef = useRef<Vec3>(rotation || { x: 0, y: 0, z: 0 });
-  const posRef = useRef<Vec3>(position || { x: 0, y: 0, z: 0 });
-  const scaleRef = useRef<Vec3>(scale || { x: 1, y: 1, z: 1 });
-  const dragging = useRef(false);
-  const startPoint = useRef<{x:number;y:number}>({x:0,y:0});
-  const startRot = useRef<Vec3>(rotRef.current);
-  useImperativeHandle(ref, () => ({
-    animate: (name: string, frames: Parameters<typeof keyframesToCss>[1], options?: { duration?: number; easing?: string }) => {
-      const css = keyframesToCss(name, frames);
-      const id = ensureStyle(css);
-      const el = elRef.current!;
-      el.style.animationName = name;
-      el.style.animationDuration = `${options?.duration ?? 500}ms`;
-      el.style.animationTimingFunction = options?.easing ?? 'ease-out';
-      el.style.animationIterationCount = '1';
-      // force reflow
-      void el.offsetWidth;
-      el.style.animationName = id.replace('c3d-','');
-    },
-    getElement: () => elRef.current
-  }), []);
 
-  const t = useMemo(() => {
-    const r = rotRef.current;
-    const p = posRef.current;
-    const s = scaleRef.current;
-    return `rotateX(${r.x}deg) rotateY(${r.y}deg) rotateZ(${r.z}deg) translate3d(${p.x}px, ${p.y}px, ${p.z}px) scale3d(${s.x}, ${s.y}, ${s.z})`;
-  }, [rotRef.current.x, rotRef.current.y, rotRef.current.z, posRef.current.x, posRef.current.y, posRef.current.z, scaleRef.current.x, scaleRef.current.y, scaleRef.current.z]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      animate: (name, frames, options = {}) => {
+        const css = keyframesToCss(name, frames);
+        ensureStyle(css);
+        const element = elRef.current;
+        if (!element) return;
 
-  useLayoutEffect(() => {
-    rotRef.current = rotation || rotRef.current;
-    posRef.current = position || posRef.current;
-    scaleRef.current = scale || scaleRef.current;
-  }, [rotation, position, scale]);
+        element.style.animation = [
+          name,
+          `${options.duration ?? 500}ms`,
+          easingToCss(options.easing) ?? 'ease-out',
+          `${options.delay ?? 0}ms`,
+          String(options.iterations ?? 1),
+          options.direction ?? 'normal',
+          options.fillMode ?? 'both',
+        ].join(' ');
+      },
+      getElement: () => elRef.current,
+    }),
+    [],
+  );
 
-  useLayoutEffect(() => {
-    const el = elRef.current;
-    if (!el) return;
-
-    const onPointerDown = (e: PointerEvent) => {
-      dragging.current = true;
-      startPoint.current = { x: e.clientX, y: e.clientY };
-      startRot.current = { ...rotRef.current };
-      el.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragging.current) return;
-      const dx = e.clientX - startPoint.current.x; // left-right
-      const dy = e.clientY - startPoint.current.y; // up-down
-      // Sensitivity: 0.4 deg per pixel
-      const sens = 0.4;
-      rotRef.current = {
-        x: startRot.current.x + dy * sens, // up/down -> rotateX
-        y: startRot.current.y + dx * sens, // left/right -> rotateY
-        z: startRot.current.z,
-      };
-      // trigger re-render by updating style directly to avoid extra state
-      if (el) {
-        const r = rotRef.current; const p = posRef.current; const s = scaleRef.current;
-        el.style.transform = `rotateX(${r.x}deg) rotateY(${r.y}deg) rotateZ(${r.z}deg) translate3d(${p.x}px, ${p.y}px, ${p.z}px) scale3d(${s.x}, ${s.y}, ${s.z})`;
-      }
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      dragging.current = false;
-      try { el.releasePointerCapture(e.pointerId); } catch {}
-    };
-
-    el.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    return () => {
-      el.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-    };
-  }, []);
-
-  return <div className={className} style={{ transformStyle: 'preserve-3d', transform: t, touchAction: 'none', ...style }} ref={elRef}>{children}</div>;
+  return (
+    <div
+      ref={elRef}
+      className={className}
+      style={{
+        position: 'absolute',
+        width: size?.x == null ? undefined : `${size.x}px`,
+        height: size?.y == null ? undefined : `${size.y}px`,
+        transformStyle: 'preserve-3d',
+        transformOrigin: origin,
+        transform: transformToCss({ position, rotation, scale }),
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
 });
 
-export type Cube3DProps = {
+export type Space3DProps = Group3DProps;
+
+export const Space3D = forwardRef<NodeHandle, Space3DProps>(function Space3D(props, ref) {
+  return <Group3D ref={ref} {...props} />;
+});
+
+export type Plane3DProps = TransformProps & {
+  size: Size2;
+  material?: MaterialSolid | MaterialImage;
+  children?: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+  faceStyle?: React.CSSProperties;
+  origin?: string;
+};
+
+export function Plane3D({
+  size,
+  material,
+  children,
+  className,
+  style,
+  faceStyle,
+  origin = '50% 50%',
+  position,
+  rotation,
+  scale,
+}: Plane3DProps) {
+  return (
+    <Group3D
+      className={className}
+      size={{ x: size.x, y: size.y, z: 0 }}
+      origin={origin}
+      position={position}
+      rotation={rotation}
+      scale={scale}
+      style={style}
+    >
+      <div
+        data-cube3d-plane
+        style={{
+          position: 'absolute',
+          inset: 0,
+          boxSizing: 'border-box',
+          background: materialToCss(material),
+          transformStyle: 'preserve-3d',
+          backfaceVisibility: 'visible',
+          ...faceStyle,
+        }}
+      >
+        {children}
+      </div>
+    </Group3D>
+  );
+}
+
+export type Cube3DProps = TransformProps & {
   size: Size3;
   material?: MaterialSolid;
   contrast?: number;
+  faces?: Partial<Record<FaceDirection, React.ReactNode>>;
+  faceClassName?: string;
+  faceStyle?: React.CSSProperties | ((face: CubeFace) => React.CSSProperties | undefined);
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
 };
 
-export function Cube3D({ size, material, contrast = 20, className, style, children }: Cube3DProps) {
-  const cube = useMemo(() => new Cube({ size, material, contrast }), [size.x, size.y, size.z, material?.rgba?.join(','), contrast]);
-  const faces = useMemo(() => buildFaces(size, material, contrast), [size, material, contrast]);
-  return <div className={className} style={{ position: 'relative', width: `${size.x}px`, height: `${size.y}px`, transformStyle: 'preserve-3d', ...style }}>
-    {faces.map((f: React.CSSProperties, i: number) => <div key={i} style={f} />)}
-    {children}
-  </div>;
-}
+export function Cube3D({
+  size,
+  material,
+  contrast = 20,
+  faces,
+  faceClassName,
+  faceStyle,
+  className,
+  style,
+  children,
+  position,
+  rotation,
+  scale,
+}: Cube3DProps) {
+  const cubeFaces = useMemo(
+    () => createCubeFaces(size, material, contrast),
+    [size.x, size.y, size.z, material?.rgba.join(','), contrast],
+  );
 
-function buildFaces(size: Size3, material?: MaterialSolid, contrast = 20) {
-  const rgba = material?.rgba;
-  const bg = rgba ? (c: number) => `rgba(${rgba[0]-c},${rgba[1]-c},${rgba[2]-c},${rgba[3]})` : undefined;
-  const styles: React.CSSProperties[] = [];
-  const W = size.x, H = size.y, Z = size.z;
-  const push = (s: React.CSSProperties) => styles.push({ position: 'absolute', width: `${s.width}px`, height: `${s.height}px`, background: s.background, transform: s.transform } as any);
-
-  // bottom (0)
-  push({ width: W, height: H, background: bg ? bg(5*contrast) : undefined, transform: `translateZ(${Z/2}px)` });
-  // front (1)
-  push({ width: H, height: Z, background: bg ? bg(contrast) : undefined, transform: `rotateZ(-90deg) rotateX(90deg) translateX(${(Z-H)/2}px) translateZ(${H/2}px)` });
-  // right (2)
-  push({ width: W, height: Z, background: bg ? bg(2*contrast) : undefined, transform: `rotateZ(0deg) rotateX(90deg) translateZ(${Z/2}px)` });
-  // left (3)
-  push({ width: W, height: Z, background: bg ? bg(3*contrast) : undefined, transform: `rotateZ(180deg) rotateX(90deg) translateZ(${Z - (Z/2)}px)` });
-  // back (4)
-  push({ width: H, height: Z, background: bg ? bg(4*contrast) : undefined, transform: `rotateZ(90deg) rotateX(90deg) translateX(${-(Z-H)/2}px) translateZ(${W - (H/2)}px)` });
-  // top (5)
-  push({ width: W, height: H, background: bg ? bg(0) : undefined, transform: `rotateX(180deg) translateZ(${Z/2}px)` });
-
-  return styles;
+  return (
+    <Group3D
+      className={className}
+      size={size}
+      position={position}
+      rotation={rotation}
+      scale={scale}
+      style={{
+        ...style,
+      }}
+    >
+      {cubeFaces.map((face) => (
+        <div
+          key={face.direction}
+          data-cube3d-face={face.direction}
+          className={faceClassName}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: `${face.size.x}px`,
+            height: `${face.size.y}px`,
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+            background: materialToCss(face.material),
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            transformStyle: 'preserve-3d',
+            backfaceVisibility: 'visible',
+            transform: face.transform,
+            ...(typeof faceStyle === 'function' ? faceStyle(face) : faceStyle),
+          }}
+        >
+          {faces?.[face.direction]}
+        </div>
+      ))}
+      {children}
+    </Group3D>
+  );
 }

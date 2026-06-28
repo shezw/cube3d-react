@@ -1,84 +1,118 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Scene3D, Group3D, Cube3D } from '@cube3d/react';
-import { keyframesToCss, ensureStyle } from '@cube3d/css-renderer';
+import { Cube3D, Plane3D, Scene3D, Space3D } from '@cube3d/react';
 
 function App() {
-  const headRef = useRef<any>(null);
+  const [tilt, setTilt] = useState({ x: 58, y: 0, z: -34 });
 
-  // define jump & spiral animations similar to original presets
-  const jump = {
-    20: { transform: { translateY: '25%' } },
-    40: { transform: { translateY: '-150%', scaleY: 1.5, scaleZ: 0.5 } },
-    60: { transform: { translateY: '35%', scaleY: 0.75, scaleX: 1.25, scaleZ: 1 } },
-    80: { transform: { translateY: '-75%', scaleY: 1.5, scaleZ: 0.5 } },
-    100: { transform: { translateY: '0', scaleY: 1, scaleZ: 1 } },
-  };
-
-  const spiral = {
-    0: { transform: { rotateZ: 45, scaleY: 1, scaleX: 1, scaleZ: 1 } },
-    50: { transform: { translateY: '-100%', rotateZ: 585, scaleY: 1.5, scaleX: 1, scaleZ: 1 } },
-    100: { transform: { rotateZ: 765, scaleX: 1, scaleY: 1, scaleZ: 1 } },
-  };
   return (
-    <div style={{ background: '#232325', minHeight: '100vh', color: '#ccc' }}>
-      <div style={{ margin: '10px auto', padding: '200px 0 100px 0' }}>
-        <div style={{ width: 160, height: 160, margin: '0 auto' }}>
-          <Scene3D perspective={900}>
-            <Group3D rotation={{ x: -120, y: 0, z: 45 }} ref={headRef}>
-              <Cube3D size={{ x: 160, y: 160, z: 160 }} material={{ kind: 'solid', rgba: [205,175,145,1], contrast: 20 }}>
-                {/* simple front image overlay */}
-                <div style={{ position: 'absolute', width: '120px', height: '120px', left: '20px', top: '20px', transform: 'translateZ(80px)' }}>
-                  <img src="/face.png" alt="face" style={{ width: '100%', height: '100%' }} />
-                </div>
-              </Cube3D>
-              {/* Hat layers positioned along -Z axis to match original demo */}
-              <Group3D position={{ x: 0, y: 0, z: -120 }}>
-                <Cube3D size={{ x: 168, y: 168, z: 16 }} material={{ kind: 'solid', rgba: [240,230,210,1], contrast: 20 }} />
-              </Group3D>
-              <Group3D position={{ x: 0, y: 0, z: -128 }}>
-                <Cube3D size={{ x: 120, y: 120, z: 24 }} material={{ kind: 'solid', rgba: [100,90,85,1], contrast: 20 }} />
-              </Group3D>
-              <Group3D position={{ x: 0, y: 0, z: -152 }}>
-                <Cube3D size={{ x: 120, y: 120, z: 32 }} material={{ kind: 'solid', rgba: [240,230,210,1], contrast: 20 }} />
-              </Group3D>
-            </Group3D>
-          </Scene3D>
-        </div>
-        <div style={{ position: 'fixed', left: '20px', bottom: '20px', display: 'flex', gap: '12px' }}>
-          <button
-            style={{ padding: '10px 30px', fontSize: '16pt' }}
-            onClick={() => {
-              const name = 'c3d-jump';
-              const css = keyframesToCss(name, jump);
-              ensureStyle(css);
-              const target = headRef.current?.getElement();
-              if (target) {
-                target.style.animation = `${name} 750ms ease-out 0ms 1 normal backwards`;
-              }
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateRows: '1fr auto',
+        placeItems: 'center',
+        background: 'linear-gradient(145deg, #121418 0%, #20262a 54%, #30382f 100%)',
+        color: '#eef3f8',
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}
+    >
+      <Scene3D
+        perspective={980}
+        origin="50% 45%"
+        style={{
+          width: 720,
+          height: 560,
+          maxWidth: '100vw',
+          maxHeight: 'calc(100vh - 96px)',
+        }}
+      >
+        <Space3D
+          size={{ x: 420, y: 420, z: 220 }}
+          position={{ x: 150, y: 94, z: 0 }}
+          rotation={tilt}
+        >
+          <Plane3D
+            size={{ x: 420, y: 420 }}
+            material={{ kind: 'solid', rgba: [50, 66, 68, 1] }}
+            faceStyle={{
+              border: '1px solid rgba(214, 232, 218, 0.24)',
+              backgroundImage:
+                'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+              backgroundSize: '42px 42px',
+              boxShadow: '0 26px 80px rgba(0,0,0,0.34)',
             }}
-          >
-            Jump
-          </button>
-          <button
-            style={{ padding: '10px 30px', fontSize: '16pt' }}
-            onClick={() => {
-              const name = 'c3d-spiral';
-              const css = keyframesToCss(name, spiral);
-              ensureStyle(css);
-              const target = headRef.current?.getElement();
-              if (target) {
-                target.style.animation = `${name} 1000ms ease-out 0ms 1 normal backwards`;
-              }
-            }}
-          >
-            Spiral
-          </button>
-        </div>
+          />
+
+          <Cube3D
+            size={{ x: 112, y: 112, z: 86 }}
+            position={{ x: 70, y: 70, z: 43 }}
+            material={{ kind: 'solid', rgba: [214, 112, 92, 1] }}
+            contrast={18}
+            faceStyle={(face) => ({
+              border: '1px solid rgba(255,255,255,0.16)',
+              display: 'grid',
+              placeItems: 'center',
+              color: face.direction === 'front' ? '#251512' : 'transparent',
+              fontWeight: 700,
+            })}
+            faces={{ front: <span>A</span> }}
+          />
+
+          <Cube3D
+            size={{ x: 76, y: 76, z: 148 }}
+            position={{ x: 270, y: 235, z: 74 }}
+            material={{ kind: 'solid', rgba: [96, 158, 224, 1] }}
+            contrast={16}
+            faceStyle={(face) => ({
+              border: '1px solid rgba(255,255,255,0.14)',
+              display: 'grid',
+              placeItems: 'center',
+              color: face.direction === 'front' ? '#091723' : 'transparent',
+              fontWeight: 700,
+            })}
+            faces={{ front: <span>B</span> }}
+          />
+        </Space3D>
+      </Scene3D>
+
+      <div
+        style={{
+          position: 'fixed',
+          insetInline: 0,
+          bottom: 24,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 10,
+        }}
+      >
+        <button type="button" onClick={() => setTilt({ x: 58, y: 0, z: -34 })} style={buttonStyle}>
+          Iso
+        </button>
+        <button type="button" onClick={() => setTilt({ x: 68, y: 0, z: -18 })} style={buttonStyle}>
+          Side
+        </button>
+        <button type="button" onClick={() => setTilt({ x: 42, y: 0, z: -48 })} style={buttonStyle}>
+          Top
+        </button>
       </div>
-    </div>
+    </main>
   );
 }
 
-const el = document.getElementById('root')!;
-createRoot(el).render(<App />);
+const buttonStyle: React.CSSProperties = {
+  minWidth: 76,
+  minHeight: 38,
+  border: '1px solid rgba(255,255,255,0.22)',
+  borderRadius: 6,
+  background: 'rgba(18, 20, 24, 0.78)',
+  color: '#f8fafc',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const root = document.getElementById('root');
+if (!root) throw new Error('Root element was not found.');
+
+createRoot(root).render(<App />);

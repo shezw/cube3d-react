@@ -1,18 +1,30 @@
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
 import React from 'react';
-import { Scene3D, Group3D, Cube3D } from '@cube3d/react';
+import { describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Cube3D, Plane3D, Scene3D, Space3D } from '@cube3d/react';
 
-describe('React components render', () => {
-  it('renders a basic scene with a cube', () => {
-    const { container } = render(
+describe('React pseudo 3D scene', () => {
+  it('renders a square plane and two differently sized cubes', () => {
+    const html = renderToStaticMarkup(
       <Scene3D perspective={900}>
-        <Group3D rotation={{ x: -120, y: 0, z: 45 }}>
-          <Cube3D size={{ x: 100, y: 100, z: 100 }} material={{ kind: 'solid', rgba: [200,200,200,1], contrast: 20 }} />
-        </Group3D>
-      </Scene3D>
+        <Space3D rotation={{ x: 58, y: 0, z: -34 }}>
+          <Plane3D size={{ x: 420, y: 420 }} material={{ kind: 'solid', rgba: [50, 66, 68, 1] }} />
+          <Cube3D
+            size={{ x: 112, y: 112, z: 86 }}
+            position={{ x: 70, y: 70, z: 43 }}
+            material={{ kind: 'solid', rgba: [214, 112, 92, 1] }}
+          />
+          <Cube3D
+            size={{ x: 76, y: 76, z: 148 }}
+            position={{ x: 270, y: 235, z: 74 }}
+            material={{ kind: 'solid', rgba: [96, 158, 224, 1] }}
+          />
+        </Space3D>
+      </Scene3D>,
     );
-    const divs = container.querySelectorAll('div');
-    expect(divs.length).toBeGreaterThan(0);
+
+    expect(html).toContain('data-cube3d-plane="true"');
+    expect(html.match(/data-cube3d-face=/g)).toHaveLength(12);
+    expect(html).toContain('translate3d(270px, 235px, 74px)');
   });
 });
