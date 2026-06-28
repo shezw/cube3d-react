@@ -71,6 +71,7 @@ export type MaterialImage = {
 export type Material = MaterialSolid | MaterialImage;
 
 export type FaceDirection = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+export type FaceMaterials = Partial<Record<FaceDirection, Material>>;
 
 export type CubeFace = {
   direction: FaceDirection;
@@ -161,6 +162,14 @@ export function createCubeFaces(size: Size3, material?: MaterialSolid, contrast 
   ];
 }
 
+export function createBoxFaces(init: { size: Size3; material?: MaterialSolid; materials?: FaceMaterials; contrast?: number }): CubeFace[] {
+  const { size, material, materials, contrast = 20 } = init;
+  return createCubeFaces(size, material, contrast).map((face) => ({
+    ...face,
+    material: materials?.[face.direction] ?? face.material,
+  }));
+}
+
 export function materialToCss(material?: Material): string | undefined {
   if (!material) return undefined;
   if (material.kind === 'image') return `url("${material.src}") center / cover no-repeat`;
@@ -190,17 +199,19 @@ export class Node3D {
 export class Cube extends Node3D {
   readonly size: Size3;
   readonly material?: MaterialSolid;
+  readonly materials?: FaceMaterials;
   readonly contrast: number;
 
-  constructor(init: { size: Size3; material?: MaterialSolid; contrast?: number; transform?: PartialTransform3D }) {
+  constructor(init: { size: Size3; material?: MaterialSolid; materials?: FaceMaterials; contrast?: number; transform?: PartialTransform3D }) {
     super({ size: init.size, transform: init.transform });
     this.size = init.size;
     this.material = init.material;
+    this.materials = init.materials;
     this.contrast = init.contrast ?? 20;
   }
 
   faces(): CubeFace[] {
-    return createCubeFaces(this.size, this.material, this.contrast);
+    return createBoxFaces({ size: this.size, material: this.material, materials: this.materials, contrast: this.contrast });
   }
 }
 

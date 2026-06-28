@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCubeFaces, materialToCss, normalizeTransform, transformToCss } from '../src/index';
+import { createBoxFaces, createCubeFaces, materialToCss, normalizeTransform, transformToCss } from '../src/index';
 
 describe('@cube3d/core', () => {
   it('normalizes sparse transforms', () => {
@@ -23,5 +23,19 @@ describe('@cube3d/core', () => {
     expect(faces.map((face) => face.direction)).toEqual(['front', 'back', 'left', 'right', 'top', 'bottom']);
     expect(faces.find((face) => face.direction === 'right')?.size).toEqual({ x: 60, y: 80 });
     expect(materialToCss(faces.find((face) => face.direction === 'bottom')?.material)).toBe('rgba(150, 130, 110, 1)');
+  });
+
+  it('allows explicit per-face materials to override generated shading', () => {
+    const faces = createBoxFaces({
+      size: { x: 120, y: 80, z: 24 },
+      material: { kind: 'solid', rgba: [100, 100, 200, 1] },
+      materials: {
+        top: { kind: 'solid', rgba: [255, 230, 120, 1] },
+        front: { kind: 'image', src: '/cover.png' },
+      },
+    });
+
+    expect(materialToCss(faces.find((face) => face.direction === 'top')?.material)).toBe('rgba(255, 230, 120, 1)');
+    expect(materialToCss(faces.find((face) => face.direction === 'front')?.material)).toBe('url("/cover.png") center / cover no-repeat');
   });
 });

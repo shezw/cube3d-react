@@ -9,8 +9,10 @@ import React, {
 import type {
   AnimationOptions,
   CubeFace,
+  FaceMaterials,
   FaceDirection,
   Keyframes,
+  Material,
   MaterialImage,
   MaterialSolid,
   PartialTransform3D,
@@ -18,7 +20,7 @@ import type {
   Size3,
   Vec3,
 } from '@cube3d/core';
-import { createCubeFaces, materialToCss, transformToCss } from '@cube3d/core';
+import { createBoxFaces, materialToCss, transformToCss } from '@cube3d/core';
 import { easingToCss, ensureStyle, keyframesToCss } from '@cube3d/css-renderer';
 
 export type Scene3DProps = {
@@ -147,7 +149,7 @@ export const Space3D = forwardRef<NodeHandle, Space3DProps>(function Space3D(pro
 
 export type Plane3DProps = TransformProps & {
   size: Size2;
-  material?: MaterialSolid | MaterialImage;
+  material?: Material;
   children?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
@@ -195,9 +197,27 @@ export function Plane3D({
   );
 }
 
+export type Sprite3DProps = Plane3DProps & {
+  alignToCamera?: boolean;
+};
+
+export function Sprite3D({ alignToCamera: _alignToCamera, faceStyle, ...props }: Sprite3DProps) {
+  return (
+    <Plane3D
+      {...props}
+      faceStyle={{
+        backgroundColor: 'transparent',
+        overflow: 'visible',
+        ...faceStyle,
+      }}
+    />
+  );
+}
+
 export type Cube3DProps = TransformProps & {
   size: Size3;
   material?: MaterialSolid;
+  materials?: FaceMaterials;
   contrast?: number;
   faces?: Partial<Record<FaceDirection, React.ReactNode>>;
   faceClassName?: string;
@@ -210,6 +230,7 @@ export type Cube3DProps = TransformProps & {
 export function Cube3D({
   size,
   material,
+  materials,
   contrast = 20,
   faces,
   faceClassName,
@@ -222,8 +243,8 @@ export function Cube3D({
   scale,
 }: Cube3DProps) {
   const cubeFaces = useMemo(
-    () => createCubeFaces(size, material, contrast),
-    [size.x, size.y, size.z, material?.rgba.join(','), contrast],
+    () => createBoxFaces({ size, material, materials, contrast }),
+    [size.x, size.y, size.z, material?.rgba.join(','), materialKey(materials), contrast],
   );
 
   return (
@@ -266,4 +287,69 @@ export function Cube3D({
       {children}
     </Group3D>
   );
+}
+
+export type Box3DProps = Cube3DProps;
+
+export function Box3D(props: Box3DProps) {
+  return <Cube3D {...props} />;
+}
+
+export type Extrude3DProps = TransformProps & {
+  children: React.ReactNode;
+  depth?: number;
+  layers?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  layerClassName?: string;
+  layerStyle?: React.CSSProperties | ((layer: { index: number; progress: number; isFront: boolean }) => React.CSSProperties | undefined);
+};
+
+export function Extrude3D({
+  children,
+  depth = 24,
+  layers = 10,
+  className,
+  style,
+  layerClassName,
+  layerStyle,
+  position,
+  rotation,
+  scale,
+}: Extrude3DProps) {
+  const safeLayers = Math.max(1, Math.floor(layers));
+  const step = safeLayers === 1 ? 0 : depth / (safeLayers - 1);
+
+  return (
+    <Group3D className={className} position={position} rotation={rotation} scale={scale} style={style}>
+      {Array.from({ length: safeLayers }, (_, index) => {
+        const progress = safeLayers === 1 ? 1 : index / (safeLayers - 1);
+        const isFront = index === safeLayers - 1;
+        return (
+          <div
+            key={index}
+            aria-hidden={isFront ? undefined : true}
+            className={layerClassName}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              transformStyle: 'preserve-3d',
+              transform: `translateZ(${index * step}px)`,
+              ...(typeof layerStyle === 'function' ? layerStyle({ index, progress, isFront }) : layerStyle),
+            }}
+          >
+            {children}
+          </div>
+        );
+      })}
+    </Group3D>
+  );
+}
+
+function materialKey(materials?: FaceMaterials): string {
+  if (!materials) return '';
+  return Object.entries(materials)
+    .map(([direction, material]) => `${direction}:${material ? materialToCss(material) : ''}`)
+    .join('|');
 }
