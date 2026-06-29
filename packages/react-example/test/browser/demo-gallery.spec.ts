@@ -159,14 +159,63 @@ function assertCylinderSpecGeometry(demo: DemoSpec) {
   const radius = reference.radius;
   const topY = reference.position[1] - reference.height / 2;
   const bottomY = reference.position[1] + reference.height / 2;
-  const expectedSideWidth = Math.round(2 * radius * Math.tan(Math.PI / 8));
+  const segmentCount = 8;
+  const expectedSideWidth = regularPolygonSideForEqualCircleArea(radius, segmentCount);
+  const expectedApothem = regularPolygonApothem(expectedSideWidth, segmentCount);
+  const expectedOctagonArea = (segmentCount * expectedSideWidth * expectedApothem) / 2;
+  const expectedCircleArea = Math.PI * radius * radius;
 
-  expect(sides).toHaveLength(8);
+  expect(sides).toHaveLength(segmentCount);
   expect(topCircle.transform?.position).toEqual([reference.position[0] - radius, topY - radius, reference.position[2]]);
   expect(bottomCircle.transform?.position).toEqual([reference.position[0] - radius, bottomY - radius, reference.position[2]]);
-  expect(side0.transform?.position?.[1]).toBe(topY);
-  expect(side0.size[0]).toBe(expectedSideWidth);
-  expect(side0.size[1]).toBe(reference.height);
+  expect(side0.transform?.position?.[1]).toBeCloseTo(topY, 3);
+  expect(side0.size[0]).toBeCloseTo(expectedSideWidth, 3);
+  expect(side0.size[1]).toBeCloseTo(reference.height, 3);
+  expect(expectedApothem).toBeLessThan(radius);
+  expect(expectedOctagonArea / expectedCircleArea).toBeCloseTo(1, 3);
+  expectRegularOctagonPanelChain(sides, reference.position, expectedSideWidth, expectedApothem);
+}
+
+function expectRegularOctagonPanelChain(
+  sides: ReturnType<typeof flattenDesignNodes>,
+  axis: [number, number, number],
+  sideLength: number,
+  apothem: number,
+) {
+  const segmentCount = sides.length;
+  const endpoints = sides.map(({ node }, index) => {
+    if (node.kind === 'model') throw new Error('Cylinder side must be a primitive plane.');
+    const position = node.transform?.position;
+    if (!position) throw new Error(`Cylinder side${index} is missing a transform position.`);
+    const angle = ((node.transform?.rotation?.[1] ?? 0) / 180) * Math.PI;
+    const center = {
+      x: position[0] + sideLength / 2,
+      z: position[2],
+    };
+    const tangent = { x: Math.cos(angle), z: -Math.sin(angle) };
+    const radialDistance = Math.hypot(center.x - axis[0], center.z - axis[2]);
+    expect(radialDistance, `side${index} center should sit on the equal-area octagon apothem`).toBeCloseTo(apothem, 2);
+    return {
+      start: { x: center.x - tangent.x * sideLength / 2, z: center.z - tangent.z * sideLength / 2 },
+      end: { x: center.x + tangent.x * sideLength / 2, z: center.z + tangent.z * sideLength / 2 },
+    };
+  });
+
+  for (let index = 0; index < segmentCount; index += 1) {
+    const current = endpoints[index];
+    const next = endpoints[(index + 1) % segmentCount];
+    const gap = Math.hypot(current.end.x - next.start.x, current.end.z - next.start.z);
+    expect(gap, `side${index} should meet side${(index + 1) % segmentCount}`).toBeLessThan(0.03);
+  }
+}
+
+function regularPolygonSideForEqualCircleArea(radius: number, segments: number) {
+  const circleArea = Math.PI * radius * radius;
+  return Math.sqrt((4 * circleArea * Math.tan(Math.PI / segments)) / segments);
+}
+
+function regularPolygonApothem(sideLength: number, segments: number) {
+  return sideLength / (2 * Math.tan(Math.PI / segments));
 }
 
 async function expectFaceBackgroundNotTransparent(page: Page, path: string) {

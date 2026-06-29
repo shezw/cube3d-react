@@ -501,18 +501,32 @@ function cylinderSidePanels(
   height: number,
   segments: number,
 ): DesignPrimitiveNode[] {
-  const panelWidth = Math.round(2 * radius * Math.tan(Math.PI / segments));
+  const panelWidth = regularPolygonSideForEqualCircleArea(radius, segments);
+  const apothem = regularPolygonApothem(panelWidth, segments);
   return Array.from({ length: segments }, (_, index) => {
     const angle = (index / segments) * 360;
     const radians = (angle / 180) * Math.PI;
-    const centerX = axisX + Math.sin(radians) * radius;
-    const centerZ = axisZ + Math.cos(radians) * radius;
+    const centerX = axisX + Math.sin(radians) * apothem;
+    const centerZ = axisZ + Math.cos(radians) * apothem;
     const shade = index % 2 === 0 ? 0 : -18;
     return plane(`side${index}`, [panelWidth, height], [cylinderBlue[0] + shade, cylinderBlue[1] + shade, cylinderBlue[2] + shade, 1], {
       transform: {
-        position: [Math.round(centerX - panelWidth / 2), Math.round(axisY - height / 2), Math.round(centerZ)],
+        position: [roundGeometry(centerX - panelWidth / 2), roundGeometry(axisY - height / 2), roundGeometry(centerZ)],
         rotation: [0, angle, 0],
       },
     });
   });
+}
+
+function regularPolygonSideForEqualCircleArea(radius: number, segments: number) {
+  const circleArea = Math.PI * radius * radius;
+  return roundGeometry(Math.sqrt((4 * circleArea * Math.tan(Math.PI / segments)) / segments));
+}
+
+function regularPolygonApothem(sideLength: number, segments: number) {
+  return roundGeometry(sideLength / (2 * Math.tan(Math.PI / segments)));
+}
+
+function roundGeometry(value: number) {
+  return Number(value.toFixed(3));
 }
