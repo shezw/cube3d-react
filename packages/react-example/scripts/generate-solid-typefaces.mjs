@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/scripts/generate-solid-typefaces.mjs    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/scripts/generate-solid-typefaces.mjs
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

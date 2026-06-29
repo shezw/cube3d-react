@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/core/test/anchor-orientation.test.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/core/test/anchor-orientation.test.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import { describe, expect, it } from 'vitest';

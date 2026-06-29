@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/demos/spec.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/demos/spec.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import { createTypefaceSolidTextNode, type SolidTextEdgeMetadata, type SolidTextFaceMetadata, type SolidTextGlyphMetadata } from './solidText';

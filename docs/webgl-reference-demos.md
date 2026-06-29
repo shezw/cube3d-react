@@ -1,10 +1,7 @@
 <!--
-    cube3d-react
-    docs/webgl-reference-demos.md    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    docs/webgl-reference-demos.md
+    Repository: https://github.com/shezw/cube3d-react
 -->
 
 # WebGL Reference Demos

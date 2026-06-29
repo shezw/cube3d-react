@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/demos/sceneFactory.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/demos/sceneFactory.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import {

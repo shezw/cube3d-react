@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/demos/solidText.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/demos/solidText.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import type { DesignModelNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';

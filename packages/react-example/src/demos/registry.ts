@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/demos/registry.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/demos/registry.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import { demoSpecs, getDemoSpec, stageSize, type DemoId, type DemoSpec } from './spec';

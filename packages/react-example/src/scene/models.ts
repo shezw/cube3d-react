@@ -1,16 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/scene/models.ts    2026-06-29
-
-     ______     __  __     ______     ______     __     __
-    /\  ___\   /\ \_\ \   /\  ___\   /\___  \   /\ \  _ \ \
-    \ \___  \  \ \  __ \  \ \  __\   \/_/  /__  \ \ \/ ".\ \
-     \/\_____\  \ \_\ \_\  \ \_____\   /\_____\  \ \__/".~\_\
-      \/_____/   \/_/\/_/   \/_____/   \/_____/   \/_/   \/_/.com
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/scene/models.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import {

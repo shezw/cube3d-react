@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/test/browser/demo-gallery.spec.ts    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/test/browser/demo-gallery.spec.ts
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import { readFileSync, writeFileSync } from 'node:fs';

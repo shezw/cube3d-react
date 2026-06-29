@@ -1,10 +1,7 @@
 /*
-    cube3d-react
-    packages/react-example/src/demos/DemoDetails.tsx    2026-06-29
-
-    @link    : local
-    @author  : Codex
-    @email   : local
+    Cube3D React
+    packages/react-example/src/demos/DemoDetails.tsx
+    Repository: https://github.com/shezw/cube3d-react
 */
 
 import React, { useMemo } from 'react';
