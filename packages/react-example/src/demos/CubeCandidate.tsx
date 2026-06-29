@@ -110,7 +110,9 @@ function nodeFaceStyle(
   const interactive = designNode?.kind === 'model' ? undefined : designNode?.interactive;
 
   if (node.primitive?.kind === 'extrude') {
+    const isTextExtrude = designNode?.kind !== 'model' && designNode?.renderMode === 'text-extrude';
     return {
+      ...(isTextExtrude ? { background: 'transparent' } : undefined),
       color: index === 0 ? '#b9577b' : '#f07aa2',
       fontSize: node.id === 'visualWord' || node.id === 'cubeWord' || node.id === 'cubeText' ? 25 : 30,
       fontWeight: 900,

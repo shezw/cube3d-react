@@ -120,6 +120,7 @@ async function assertDemoDetails(page: Page, demo: DemoSpec) {
 async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   if (demo.id === 'primitive-lab') {
     await expectFaceBackgroundNotTransparent(page, 'primitive-lab/sprite');
+    await expectFaceBackgroundNotTransparent(page, 'primitive-lab/extrude');
   }
   if (demo.id === 'text-extrude') {
     assertTextExtrudeSpec(demo);
@@ -132,6 +133,8 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   }
   if (demo.id === 'cover-scene') {
     await expectFaceBackgroundNotTransparent(page, 'cover-scene/character/controller/cord');
+    await expectFaceBackgroundTransparent(page, 'cover-scene/visualWord');
+    await expectFaceBackgroundTransparent(page, 'cover-scene/cubeWord');
   }
   if (demo.id === 'interaction-html') {
     await expect(page.locator('[data-demo-debug]')).toHaveCount(0);
@@ -177,9 +180,11 @@ function assertTextExtrudeSpec(demo: DemoSpec) {
   expect(cubeText?.layers).toBe(9);
   expect(cubeText?.depth).toBe(24);
   expect(cubeText?.label).toBe('CUBE3D');
+  expect(cubeText?.renderMode).toBe('text-extrude');
   expect(htmlText?.layers).toBe(6);
   expect(htmlText?.depth).toBe(16);
   expect(htmlText?.label).toBe('HTML');
+  expect(htmlText?.renderMode).toBe('text-extrude');
 }
 
 async function expectExtrudeText(page: Page, path: string, text: string, layers: number) {
@@ -189,7 +194,7 @@ async function expectExtrudeText(page: Page, path: string, text: string, layers:
   for (let index = 0; index < layers; index += 1) {
     await expect(node.locator(`[data-cube3d-layer-index="${index}"]`)).toHaveCount(1);
   }
-  await expectFaceBackgroundNotTransparent(page, path);
+  await expectFaceBackgroundTransparent(page, path);
 }
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {
@@ -321,6 +326,11 @@ function regularPolygonApothem(sideLength: number, segments: number) {
 async function expectFaceBackgroundNotTransparent(page: Page, path: string) {
   const background = await page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`).first().evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(background, `${path} face background should keep its material color`).not.toBe('rgba(0, 0, 0, 0)');
+}
+
+async function expectFaceBackgroundTransparent(page: Page, path: string) {
+  const background = await page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`).first().evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(background, `${path} text mode face background should be transparent`).toBe('rgba(0, 0, 0, 0)');
 }
 
 async function expectCircleFace(page: Page, path: string) {

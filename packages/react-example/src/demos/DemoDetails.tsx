@@ -79,6 +79,7 @@ function formatTreeMeta(node: DesignNode): string {
     if (node.layers != null) chunks.push(`layers=${node.layers}`);
     if (node.depth != null) chunks.push(`depth=${node.depth}`);
     if (node.shape) chunks.push(`shape=${node.shape}`);
+    if (node.renderMode) chunks.push(`renderMode=${node.renderMode}`);
     if (node.interactive) chunks.push(`interactive=${node.interactive}`);
   }
   if (node.kind === 'model' && node.referenceShape) chunks.push(`reference=${node.referenceShape.kind}`);
@@ -131,6 +132,7 @@ function formatPrimitiveCode(node: DesignPrimitiveNode, indent: number): string 
   if (node.depth != null) lines.push(`${childPad}depth: ${node.depth},`);
   if (node.label) lines.push(`${childPad}label: '${escapeString(node.label)}',`);
   if (node.shape) lines.push(`${childPad}shape: '${node.shape}',`);
+  if (node.renderMode) lines.push(`${childPad}renderMode: '${node.renderMode}',`);
   if (node.interactive) lines.push(`${childPad}interactive: '${node.interactive}',`);
   lines.push(`${pad}}`);
   return lines.join('\n');

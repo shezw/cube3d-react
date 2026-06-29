@@ -66,6 +66,7 @@ export type DesignPrimitiveNode = {
   depth?: number;
   label?: string;
   shape?: 'circle';
+  renderMode?: 'text-extrude';
   interactive?: 'cube-face' | 'controller-button' | 'sprite-button';
 };
 
@@ -287,12 +288,14 @@ export const demoSpecs: DemoSpec[] = [
           layers: 9,
           depth: 24,
           label: 'CUBE3D',
+          renderMode: 'text-extrude',
         }),
         extrude('htmlText', [132, 34], [239, 130, 168, 1], {
           transform: { position: [134, 68, 46], rotation: [0, 0, 10] },
           layers: 6,
           depth: 16,
           label: 'HTML',
+          renderMode: 'text-extrude',
         }),
         sprite('caption', [112, 26], [88, 200, 121, 0.82], {
           transform: { position: [182, 172, 38] },
@@ -610,8 +613,8 @@ export const demoSpecs: DemoSpec[] = [
         islandNode,
         { ...cameraNode, transform: { position: [76, 48, 58] } },
         { ...characterNode, transform: { position: [190, -6, 64], scale: [0.78, 0.78, 0.78] } },
-        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, layers: 7, depth: 18, label: 'VISUAL' }),
-        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, layers: 7, depth: 18, label: 'CUBE' }),
+        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, layers: 7, depth: 18, label: 'VISUAL', renderMode: 'text-extrude' }),
+        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, layers: 7, depth: 18, label: 'CUBE', renderMode: 'text-extrude' }),
         box('prop', [44, 34, 24], [70, 178, 104, 1], { transform: { position: [256, 42, 42] } }),
       ],
     },
