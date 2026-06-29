@@ -36,6 +36,7 @@ test.describe('WebGL reference demo gallery', () => {
       await expect(page.locator('[data-validation-panel="candidate"]')).toBeVisible();
       await assertSharedSpecProvenance(page, demo);
 
+      await assertCandidateVisualRegressions(page, demo);
       await comparePanels(page, testInfo, demo.id);
       await assertDemoStructure(page, demo);
       await assertProjectedGeometry(page, demo, testInfo);
@@ -113,6 +114,28 @@ async function assertDemoDetails(page: Page, demo: DemoSpec) {
   await expect(code).toContainText(`id: '${demo.id}'`);
   await expect(code).toContainText('createSceneFromSpec');
   await expect(code).toContainText(demo.requiredPaths[0]);
+}
+
+async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
+  if (demo.id === 'primitive-lab') {
+    await expectFaceBackgroundNotTransparent(page, 'primitive-lab/sprite');
+  }
+  if (demo.id === 'nested-model') {
+    await expectFaceBackgroundNotTransparent(page, 'character/controller/cord');
+  }
+  if (demo.id === 'cover-scene') {
+    await expectFaceBackgroundNotTransparent(page, 'cover-scene/character/controller/cord');
+  }
+  if (demo.id === 'interaction-html') {
+    await expect(page.locator('[data-demo-debug]')).toHaveCount(0);
+    await expectFaceBackgroundNotTransparent(page, 'interaction-html/controller');
+    await expectFaceBackgroundNotTransparent(page, 'interaction-html/html-sprite');
+  }
+}
+
+async function expectFaceBackgroundNotTransparent(page: Page, path: string) {
+  const background = await page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`).first().evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(background, `${path} face background should keep its material color`).not.toBe('rgba(0, 0, 0, 0)');
 }
 
 async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {

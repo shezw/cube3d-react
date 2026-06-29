@@ -91,7 +91,7 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
       />
-      {spec.interactionChecks ? <div data-demo-debug style={debugPanelStyle}>path: {activePath}</div> : null}
+      {spec.interactionChecks && activePath !== 'none' ? <div data-demo-debug style={debugPanelStyle}>path: {activePath}</div> : null}
     </>
   );
 }
@@ -123,15 +123,7 @@ function nodeFaceStyle(
       placeItems: 'center',
       overflow: 'visible',
       pointerEvents: interactive ? 'auto' : undefined,
-      background: node.id === 'controller-hit' ? 'transparent' : undefined,
-    };
-  }
-
-  if (node.id === 'cord') {
-    return {
-      borderLeft: '5px solid rgba(7,9,18,0.75)',
-      borderBottom: '5px solid rgba(7,9,18,0.75)',
-      background: 'transparent',
+      ...(node.id === 'controller-hit' ? { background: 'transparent' } : undefined),
     };
   }
 
@@ -140,11 +132,14 @@ function nodeFaceStyle(
   }
 
   if (node.id === 'controller' && spec.id === 'interaction-html') {
-    return { background: state.hovered ? 'rgba(118,122,196,1)' : undefined };
+    return state.hovered ? { background: 'rgba(118,122,196,1)' } : undefined;
   }
 
   if (interactive === 'cube-face' && face.direction === 'front') {
-    return { overflow: 'visible', background: state.clicked ? 'rgba(92,222,140,1)' : undefined };
+    return {
+      overflow: 'visible',
+      ...(state.clicked ? { background: 'rgba(92,222,140,1)' } : undefined),
+    };
   }
 
   if (interactive === 'cube-face') {
