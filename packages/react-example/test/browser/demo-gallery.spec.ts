@@ -15,7 +15,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
-import { resolveTextExtrudeDepth, resolveTextExtrudeLayers } from '../../src/demos/textExtrude';
+import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';
 
 test.describe('WebGL reference demo gallery', () => {
   test('reference and candidate renderers are guarded against per-demo hardcoded scenes', async () => {
@@ -124,12 +124,20 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectFaceBackgroundNotTransparent(page, 'primitive-lab/extrude');
     await expectReferenceTextModes(page, [], ['primitive-lab/extrude']);
   }
-  if (demo.id === 'text-extrude') {
-    assertTextExtrudeSpec(demo);
-    await expectReferenceTextModes(page, ['text-extrude/cubeText', 'text-extrude/htmlText']);
-    await expectExtrudeText(page, 'text-extrude/cubeText', 'CUBE3D', 24);
-    await expectExtrudeText(page, 'text-extrude/htmlText', 'HTML', 8);
-    await expect(page.locator('[data-cube3d-path="text-extrude/caption"]')).toContainText('live text');
+  if (demo.id === 'layered-text') {
+    assertLayeredTextSpec(demo);
+    await expectReferenceTextModes(page, ['layered-text/cubeText', 'layered-text/htmlText']);
+    await expectLayeredText(page, 'layered-text/cubeText', 'CUBE3D', 24);
+    await expectLayeredText(page, 'layered-text/htmlText', 'HTML', 8);
+    await expect(page.locator('[data-cube3d-path="layered-text/caption"]')).toContainText('live text');
+  }
+  if (demo.id === 'solid-text') {
+    assertSolidTextSpec(demo);
+    await expect(page.locator('[data-cube3d-model="solid-text"]')).toHaveCount(1);
+    await expect(page.locator('[data-cube3d-path="solid-text/solidWord"] [data-cube3d-layer-index]')).toHaveCount(0);
+    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/front-"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/back-"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/edge-"]').count()).toBeGreaterThan(0);
   }
   if (demo.id === 'nested-model') {
     await expectFaceBackgroundNotTransparent(page, 'character/controller/cord');
@@ -174,28 +182,46 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   }
 }
 
-function assertTextExtrudeSpec(demo: DemoSpec) {
+function assertLayeredTextSpec(demo: DemoSpec) {
   const nodes = flattenDesignNodes(demo.root);
-  const cubeText = nodes.find(({ path }) => path === 'text-extrude/cubeText')?.node;
-  const htmlText = nodes.find(({ path }) => path === 'text-extrude/htmlText')?.node;
+  const cubeText = nodes.find(({ path }) => path === 'layered-text/cubeText')?.node;
+  const htmlText = nodes.find(({ path }) => path === 'layered-text/htmlText')?.node;
   expect(cubeText?.kind).toBe('extrude');
   expect(htmlText?.kind).toBe('extrude');
   if (cubeText?.kind === 'model' || htmlText?.kind === 'model') return;
   expect(cubeText?.textHeight).toBe(24);
   expect(cubeText?.textSmooth).toBe('max');
-  expect(resolveTextExtrudeLayers(cubeText!)).toBe(24);
-  expect(resolveTextExtrudeDepth(cubeText!)).toBe(24);
+  expect(resolveLayeredTextLayers(cubeText!)).toBe(24);
+  expect(resolveLayeredTextDepth(cubeText!)).toBe(24);
   expect(cubeText?.label).toBe('CUBE3D');
-  expect(cubeText?.renderMode).toBe('text-extrude');
+  expect(cubeText?.renderMode).toBe('layered-text');
   expect(htmlText?.textHeight).toBe(16);
   expect(htmlText?.textSmooth).toBe('high');
-  expect(resolveTextExtrudeLayers(htmlText!)).toBe(8);
-  expect(resolveTextExtrudeDepth(htmlText!)).toBe(16);
+  expect(resolveLayeredTextLayers(htmlText!)).toBe(8);
+  expect(resolveLayeredTextDepth(htmlText!)).toBe(16);
   expect(htmlText?.label).toBe('HTML');
-  expect(htmlText?.renderMode).toBe('text-extrude');
+  expect(htmlText?.renderMode).toBe('layered-text');
 }
 
-async function expectExtrudeText(page: Page, path: string, text: string, layers: number) {
+function assertSolidTextSpec(demo: DemoSpec) {
+  const nodes = flattenDesignNodes(demo.root);
+  const solidWord = nodes.find(({ path }) => path === 'solid-text/solidWord')?.node;
+  const front = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/front-'));
+  const back = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/back-'));
+  const edges = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/edge-'));
+  expect(solidWord?.kind).toBe('model');
+  if (solidWord?.kind !== 'model') return;
+  expect(solidWord.solidText?.fontName).toBe('Silkscreen');
+  expect(solidWord.solidText?.text).toBe('CUBE3D');
+  expect(solidWord.solidText?.depth).toBe(18);
+  expect(front).toHaveLength(solidWord.solidText?.frontRuns ?? 0);
+  expect(back).toHaveLength(solidWord.solidText?.backRuns ?? 0);
+  expect(edges).toHaveLength(solidWord.solidText?.edgeRuns ?? 0);
+  expect(edges.length).toBeGreaterThan(0);
+  expect(nodes.filter(({ node }) => node.kind === 'extrude')).toHaveLength(0);
+}
+
+async function expectLayeredText(page: Page, path: string, text: string, layers: number) {
   const node = page.locator(`[data-cube3d-path="${path}"]`);
   await expect(node).toContainText(text);
   await expect(node.locator('[data-cube3d-layer-index]')).toHaveCount(layers);
@@ -203,10 +229,10 @@ async function expectExtrudeText(page: Page, path: string, text: string, layers:
     await expect(node.locator(`[data-cube3d-layer-index="${index}"]`)).toHaveCount(1);
   }
   await expectFaceBackgroundTransparent(page, path);
-  await expectTextExtrudeLayerColors(page, path, layers);
+  await expectLayeredTextLayerColors(page, path, layers);
 }
 
-async function expectTextExtrudeLayerColors(page: Page, path: string, layers: number) {
+async function expectLayeredTextLayerColors(page: Page, path: string, layers: number) {
   const dark = 'rgb(185, 87, 123)';
   const bright = 'rgb(240, 122, 162)';
   const node = page.locator(`[data-cube3d-path="${path}"]`);
@@ -445,7 +471,7 @@ async function assertPrimitiveContracts(page: Page, demo: DemoSpec) {
       await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`)).toHaveCount(1);
     }
     if (node.kind === 'extrude') {
-      const expectedLayers = node.renderMode === 'text-extrude' ? resolveTextExtrudeLayers(node) : node.layers ?? 6;
+      const expectedLayers = node.renderMode === 'layered-text' ? resolveLayeredTextLayers(node) : node.layers ?? 6;
       await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-layer-index]`)).toHaveCount(expectedLayers);
     }
   }

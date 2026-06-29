@@ -7,9 +7,12 @@
     @email   : local
 */
 
+import { createSilkscreenSolidTextNode } from './solidText';
+
 export type DemoId =
   | 'primitive-lab'
-  | 'text-extrude'
+  | 'layered-text'
+  | 'solid-text'
   | 'cylinder-8'
   | 'anchor-orientation'
   | 'pivot-origin'
@@ -45,7 +48,7 @@ export type DesignMaterialMap = Partial<Record<'front' | 'back' | 'left' | 'righ
 
 export type DesignPrimitiveKind = 'box' | 'plane' | 'sprite' | 'extrude';
 
-export type TextExtrudeSmooth = 'min' | 'mid' | 'high' | 'max';
+export type LayeredTextSmooth = 'min' | 'mid' | 'high' | 'max';
 
 export type WebGLReferenceShape = {
   kind: 'cylinder';
@@ -67,11 +70,22 @@ export type DesignPrimitiveNode = {
   layers?: number;
   depth?: number;
   textHeight?: number;
-  textSmooth?: TextExtrudeSmooth;
+  textSmooth?: LayeredTextSmooth;
   label?: string;
   shape?: 'circle';
-  renderMode?: 'text-extrude';
+  renderMode?: 'layered-text';
   interactive?: 'cube-face' | 'controller-button' | 'sprite-button';
+};
+
+export type SolidTextMetadata = {
+  fontName: 'Silkscreen';
+  text: string;
+  cellSize: number;
+  depth: number;
+  frontRuns: number;
+  backRuns: number;
+  edgeRuns: number;
+  glyphCells: number;
 };
 
 export type DesignModelNode = {
@@ -83,6 +97,7 @@ export type DesignModelNode = {
   children: DesignNode[];
   attachments?: DesignAttachment[];
   referenceShape?: WebGLReferenceShape;
+  solidText?: SolidTextMetadata;
 };
 
 export type DesignNode = DesignPrimitiveNode | DesignModelNode;
@@ -274,14 +289,14 @@ export const demoSpecs: DemoSpec[] = [
     requiredPaths: ['primitive-lab/box', 'primitive-lab/plane', 'primitive-lab/sprite', 'primitive-lab/extrude'],
   },
   {
-    id: 'text-extrude',
-    title: 'Text Extrude',
-    capability: 'HTML text rendered as layered pseudo 3D extrusion',
+    id: 'layered-text',
+    title: 'Layered Text',
+    capability: 'HTML text rendered as a multi-layer text asset',
     maxDiffRatio: 0.18,
     root: {
-      id: 'text-extrude',
+      id: 'layered-text',
       kind: 'model',
-      modelName: 'text-extrude',
+      modelName: 'layered-text',
       children: [
         box('plinth', [270, 118, 16], [58, 73, 213, 1], {
           transform: { position: [34, 118, 0] },
@@ -292,14 +307,14 @@ export const demoSpecs: DemoSpec[] = [
           textHeight: 24,
           textSmooth: 'max',
           label: 'CUBE3D',
-          renderMode: 'text-extrude',
+          renderMode: 'layered-text',
         }),
         extrude('htmlText', [132, 34], [239, 130, 168, 1], {
           transform: { position: [134, 68, 46], rotation: [0, 0, 10] },
           textHeight: 16,
           textSmooth: 'high',
           label: 'HTML',
-          renderMode: 'text-extrude',
+          renderMode: 'layered-text',
         }),
         sprite('caption', [112, 26], [88, 200, 121, 0.82], {
           transform: { position: [182, 172, 38] },
@@ -307,9 +322,45 @@ export const demoSpecs: DemoSpec[] = [
         }),
       ],
     },
-    requiredPaths: ['text-extrude/plinth', 'text-extrude/cubeText', 'text-extrude/htmlText', 'text-extrude/caption'],
-    projectionPaths: ['text-extrude/plinth', 'text-extrude/cubeText', 'text-extrude/htmlText'],
-    modelCounts: { 'text-extrude': 1 },
+    requiredPaths: ['layered-text/plinth', 'layered-text/cubeText', 'layered-text/htmlText', 'layered-text/caption'],
+    projectionPaths: ['layered-text/plinth', 'layered-text/cubeText', 'layered-text/htmlText'],
+    modelCounts: { 'layered-text': 1 },
+  },
+  {
+    id: 'solid-text',
+    title: 'Solid Text',
+    capability: 'font-shaped solid text built from front, back and edge geometry',
+    maxDiffRatio: 0.2,
+    root: {
+      id: 'solid-text',
+      kind: 'model',
+      modelName: 'solid-text-demo',
+      children: [
+        box('base', [306, 112, 16], [58, 73, 213, 1], {
+          transform: { position: [24, 132, 0] },
+          faceColors: { top: [67, 80, 230, 1], front: [37, 47, 170, 1] },
+        }),
+        createSilkscreenSolidTextNode('solidWord', {
+          text: 'CUBE3D',
+          cellSize: 7,
+          depth: 18,
+          transform: { position: [42, 104, 30], rotation: [0, 0, -4] },
+          frontColor: [246, 213, 98, 1],
+          backColor: [118, 75, 48, 1],
+          edgeColor: [186, 118, 62, 1],
+        }),
+        box('comparisonBlock', [28, 28, 22], [239, 130, 168, 1], { transform: { position: [282, 72, 26] } }),
+      ],
+    },
+    requiredPaths: [
+      'solid-text/base',
+      'solid-text/solidWord',
+      'solid-text/solidWord/front-r0-c0-n5',
+      'solid-text/solidWord/back-r0-c0-n5',
+      'solid-text/solidWord/edge-left-c0-r0-n7',
+    ],
+    projectionPaths: ['solid-text/base', 'solid-text/solidWord', 'solid-text/comparisonBlock'],
+    modelCounts: { 'solid-text-demo': 1, 'solid-text': 1 },
   },
   {
     id: 'cylinder-8',
@@ -617,8 +668,8 @@ export const demoSpecs: DemoSpec[] = [
         islandNode,
         { ...cameraNode, transform: { position: [76, 48, 58] } },
         { ...characterNode, transform: { position: [190, -6, 64], scale: [0.78, 0.78, 0.78] } },
-        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, textHeight: 18, textSmooth: 'mid', label: 'VISUAL', renderMode: 'text-extrude' }),
-        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, textHeight: 18, textSmooth: 'mid', label: 'CUBE', renderMode: 'text-extrude' }),
+        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, textHeight: 18, textSmooth: 'mid', label: 'VISUAL', renderMode: 'layered-text' }),
+        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, textHeight: 18, textSmooth: 'mid', label: 'CUBE', renderMode: 'layered-text' }),
         box('prop', [44, 34, 24], [70, 178, 104, 1], { transform: { position: [256, 42, 42] } }),
       ],
     },

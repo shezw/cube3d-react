@@ -85,6 +85,7 @@ function formatTreeMeta(node: DesignNode): string {
     if (node.interactive) chunks.push(`interactive=${node.interactive}`);
   }
   if (node.kind === 'model' && node.referenceShape) chunks.push(`reference=${node.referenceShape.kind}`);
+  if (node.kind === 'model' && node.solidText) chunks.push(`solidText=${node.solidText.fontName}:${node.solidText.text}`);
   if (node.transform) chunks.push(`transform=${formatTransformInline(node.transform)}`);
   if (node.anchors) chunks.push(`anchors=${Object.keys(node.anchors).join(',')}`);
   return chunks.length > 0 ? ` ${chunks.join(' ')}` : '';
@@ -107,6 +108,7 @@ function formatModelCode(node: DesignModelNode, indent: number): string {
   if (node.transform) lines.push(`${childPad}transform: ${formatValue(transformObject(node.transform), indent + 2)},`);
   if (node.anchors) lines.push(`${childPad}anchors: ${formatAnchorMap(node.anchors, indent + 2)},`);
   if (node.referenceShape) lines.push(`${childPad}referenceShape: ${formatValue(node.referenceShape, indent + 2)},`);
+  if (node.solidText) lines.push(`${childPad}solidText: ${formatValue(node.solidText, indent + 2)},`);
   lines.push(`${childPad}children: [`);
   for (const child of node.children) {
     lines.push(`${formatNodeCode(child, indent + 4)},`);

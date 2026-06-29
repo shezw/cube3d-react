@@ -110,9 +110,9 @@ function nodeFaceStyle(
   const interactive = designNode?.kind === 'model' ? undefined : designNode?.interactive;
 
   if (node.primitive?.kind === 'extrude') {
-    const isTextExtrude = designNode?.kind !== 'model' && designNode?.renderMode === 'text-extrude';
+    const isLayeredText = designNode?.kind !== 'model' && designNode?.renderMode === 'layered-text';
     const topLayerIndex = node.primitive.layers - 1;
-    const textLayerColor = isTextExtrude
+    const textLayerColor = isLayeredText
       ? index === topLayerIndex
         ? '#f07aa2'
         : '#b9577b'
@@ -120,7 +120,7 @@ function nodeFaceStyle(
         ? '#b9577b'
         : '#f07aa2';
     return {
-      ...(isTextExtrude ? { background: 'transparent' } : undefined),
+      ...(isLayeredText ? { background: 'transparent' } : undefined),
       color: textLayerColor,
       fontSize: node.id === 'visualWord' || node.id === 'cubeWord' || node.id === 'cubeText' ? 25 : 30,
       fontWeight: 900,

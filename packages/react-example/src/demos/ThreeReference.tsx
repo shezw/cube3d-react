@@ -33,7 +33,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     let renderer: THREE.WebGLRenderer | undefined;
 
     async function renderReference() {
-      const textRuntime = hasTextExtrude(spec.root) ? await loadTextReferenceRuntime() : undefined;
+      const textRuntime = hasLayeredText(spec.root) ? await loadTextReferenceRuntime() : undefined;
       if (disposed) return;
 
       renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
@@ -234,8 +234,8 @@ function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: Des
   }
 
   if (primitive.kind === 'extrude') {
-    if (designNode?.renderMode === 'text-extrude') {
-      addTextExtrudeReference(group, primitive, designNode, textRuntime);
+    if (designNode?.renderMode === 'layered-text') {
+      addLayeredTextReference(group, primitive, designNode, textRuntime);
       return;
     }
 
@@ -249,7 +249,7 @@ function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: Des
   addPlaneFace(group, primitive, getPrimitiveFaces(primitive)[0], designNode);
 }
 
-function addTextExtrudeReference(group: THREE.Group, primitive: Primitive, designNode: DesignPrimitiveNode, textRuntime?: TextReferenceRuntime) {
+function addLayeredTextReference(group: THREE.Group, primitive: Primitive, designNode: DesignPrimitiveNode, textRuntime?: TextReferenceRuntime) {
   if (primitive.kind !== 'extrude' || !textRuntime) return;
 
   group.userData.cube3dReferenceText = true;
@@ -302,10 +302,10 @@ function collectReferenceTextModes(root: THREE.Object3D) {
   return paths.sort();
 }
 
-function hasTextExtrude(node: DesignNode): boolean {
-  if (node.kind === 'extrude' && node.renderMode === 'text-extrude') return true;
+function hasLayeredText(node: DesignNode): boolean {
+  if (node.kind === 'extrude' && node.renderMode === 'layered-text') return true;
   if (node.kind === 'model') {
-    return node.children.some((child) => hasTextExtrude(child));
+    return node.children.some((child) => hasLayeredText(child));
   }
   return false;
 }
