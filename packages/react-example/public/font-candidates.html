@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cube3D Block Font Candidates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bitcount&family=Bitcount+Single&family=Bitcount+Double&family=Bitcount+Grid+Single&family=Bitcount+Grid+Double&family=Bitcount+Prop+Single&family=Bitcount+Prop+Double&family=Bitcount+Ink&family=DotGothic16&family=Jersey+10&family=Jersey+15&family=Jersey+20&family=Jersey+25&family=Micro+5&family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Tiny5&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #171a24;
+        --panel: #222637;
+        --panel-2: #2b3044;
+        --text: #f4f0e8;
+        --muted: #aaaec0;
+        --line: rgba(255, 255, 255, 0.13);
+        --blue: #6d86ff;
+        --pink: #ef7ca3;
+        --gold: #f1d164;
+        --green: #70d99b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(1680px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: end;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 28px;
+        line-height: 1.1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      a {
+        color: #aebcff;
+      }
+
+      .summary {
+        max-width: 980px;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 6px 9px;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .sample-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 22px 0;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: #121521;
+        color: var(--text);
+        padding: 12px 14px;
+        font-size: 15px;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: var(--blue);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        display: grid;
+        gap: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 16px;
+        min-height: 310px;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .name {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+
+      .rank {
+        border: 1px solid var(--line);
+        padding: 4px 7px;
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .preview {
+        display: grid;
+        align-content: center;
+        gap: 10px;
+        min-height: 132px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background:
+          linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+          var(--panel-2);
+        background-size: 12px 12px;
+        padding: 14px;
+        overflow: hidden;
+      }
+
+      .word {
+        color: var(--gold);
+        font-size: 34px;
+        line-height: 1.08;
+        letter-spacing: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .digits {
+        color: var(--pink);
+        font-size: 22px;
+        line-height: 1.2;
+        letter-spacing: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .alphabet {
+        color: #b8c4ff;
+        font-size: 12px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .meta {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .meta strong {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .source-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: auto;
+      }
+
+      .source-row a {
+        display: inline-flex;
+        border: 1px solid rgba(174, 188, 255, 0.32);
+        padding: 5px 8px;
+        text-decoration: none;
+        font-size: 12px;
+      }
+
+      .note {
+        margin-top: 22px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 14px 16px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1180px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        main {
+          width: min(100vw - 24px, 680px);
+          padding-top: 20px;
+        }
+
+        header,
+        .sample-controls,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .badge-row {
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="summary">
+          <h1>Cube3D Block Font Candidates</h1>
+          <p>
+            这些候选来自 Google Fonts，先按英文和数字筛选像素、方块、网格化字体。
+            授权基线：Google Fonts FAQ 标注字体开源、免费、可商用；正式纳入库前仍建议锁定具体字体文件和 LICENSE。
+          </p>
+        </div>
+        <div class="badge-row">
+          <span class="badge">19 candidates</span>
+          <span class="badge">English + numbers</span>
+          <span class="badge">CSS preview only</span>
+          <span class="badge">Cube3D modeling review</span>
+        </div>
+      </header>
+
+      <section class="sample-controls" aria-label="Preview text controls">
+        <input id="word-input" value="CUBE3D VISUAL" aria-label="Primary preview text" />
+        <input id="digit-input" value="0123456789 2026" aria-label="Digit preview text" />
+      </section>
+
+      <section id="font-grid" class="grid" aria-label="Font candidates"></section>
+
+      <section class="note">
+        Source baseline:
+        <a href="https://developers.google.com/fonts/faq" target="_blank" rel="noreferrer">Google Fonts FAQ</a>.
+        Candidate pages are linked on each card. The visual grade is for Cube3D rectangular modeling suitability, not a legal ranking.
+      </section>
+    </main>
+
+    <script>
+      const candidates = [
+        {
+          family: 'Bitcount Grid Single',
+          grade: 'A strict grid',
+          purity: 'High: modular grid strokes, strong rectangular construction.',
+          readability: 'Medium: distinctive, best for short labels or logo words.',
+          use: 'Good candidate for rectangle-part glyph modeling.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Grid+Single',
+        },
+        {
+          family: 'Bitcount Grid Double',
+          grade: 'A strict grid',
+          purity: 'High: grid-based double-line rectangular feel.',
+          readability: 'Medium: decorative but structurally clear.',
+          use: 'Useful for testing multi-stroke block glyphs.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Grid+Double',
+        },
+        {
+          family: 'Bitcount Single',
+          grade: 'A block digital',
+          purity: 'High: rectilinear digital segment style.',
+          readability: 'High for uppercase and numbers.',
+          use: 'Strong candidate for Cube3D primitive decomposition.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Single',
+        },
+        {
+          family: 'Bitcount Double',
+          grade: 'A block digital',
+          purity: 'High: rectangular digital shape with double-line detail.',
+          readability: 'Medium-high for titles.',
+          use: 'Good for thicker extruded labels.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Double',
+        },
+        {
+          family: 'Bitcount Prop Single',
+          grade: 'A proportional grid',
+          purity: 'High: rectangular, proportional spacing.',
+          readability: 'High: less monospaced, easier in UI compositions.',
+          use: 'Good compromise between block construction and layout.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Prop+Single',
+        },
+        {
+          family: 'Bitcount Prop Double',
+          grade: 'A proportional grid',
+          purity: 'High: rectangular double-stroke proportional forms.',
+          readability: 'Medium-high.',
+          use: 'Good for visual comparison against Prop Single.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Prop+Double',
+        },
+        {
+          family: 'Bitcount Ink',
+          grade: 'B textured block',
+          purity: 'Medium-high: block structure, but visual fill has ink-like gaps.',
+          readability: 'Medium.',
+          use: 'Reference only unless texture is acceptable.',
+          source: 'https://fonts.google.com/specimen/Bitcount+Ink',
+        },
+        {
+          family: 'Bitcount',
+          grade: 'A variable block',
+          purity: 'High: core Bitcount rectangular construction.',
+          readability: 'Medium-high.',
+          use: 'Good broad family baseline.',
+          source: 'https://fonts.google.com/specimen/Bitcount',
+        },
+        {
+          family: 'Press Start 2P',
+          grade: 'A pixel classic',
+          purity: 'High: classic square bitmap shape.',
+          readability: 'Medium: heavy and wide.',
+          use: 'Good for arcade-style 3D text; expensive if modeled glyph-by-glyph.',
+          source: 'https://fonts.google.com/specimen/Press+Start+2P',
+        },
+        {
+          family: 'Silkscreen',
+          grade: 'A pixel UI',
+          purity: 'High: clean pixel/rectangle construction.',
+          readability: 'High: strong for UI labels and short words.',
+          use: 'One of the best practical candidates.',
+          source: 'https://fonts.google.com/specimen/Silkscreen',
+        },
+        {
+          family: 'Tiny5',
+          grade: 'A compact bitmap',
+          purity: 'High: low-resolution rectangular cells.',
+          readability: 'Medium: intentionally tiny and retro.',
+          use: 'Good for small extruded captions.',
+          source: 'https://fonts.google.com/specimen/Tiny5',
+        },
+        {
+          family: 'Micro 5',
+          grade: 'A compact bitmap',
+          purity: 'High: low-res rectangular cell style.',
+          readability: 'Medium-low at small sizes, better large.',
+          use: 'Good stress test for sparse glyph construction.',
+          source: 'https://fonts.google.com/specimen/Micro+5',
+        },
+        {
+          family: 'Jersey 10',
+          grade: 'A coarse pixel',
+          purity: 'High: blocky jersey/pixel forms.',
+          readability: 'Medium-high.',
+          use: 'Good for bold game-cover words.',
+          source: 'https://fonts.google.com/specimen/Jersey+10',
+        },
+        {
+          family: 'Jersey 15',
+          grade: 'A coarse pixel',
+          purity: 'High: rectangular pixel construction.',
+          readability: 'High.',
+          use: 'Good balanced title candidate.',
+          source: 'https://fonts.google.com/specimen/Jersey+15',
+        },
+        {
+          family: 'Jersey 20',
+          grade: 'A coarse pixel',
+          purity: 'High: blocky but less cramped than Jersey 10.',
+          readability: 'High.',
+          use: 'Good for larger Cube3D cover text.',
+          source: 'https://fonts.google.com/specimen/Jersey+20',
+        },
+        {
+          family: 'Jersey 25',
+          grade: 'A coarse pixel',
+          purity: 'High: broader block letter shape.',
+          readability: 'High.',
+          use: 'Good if we need thick, simple rectangular words.',
+          source: 'https://fonts.google.com/specimen/Jersey+25',
+        },
+        {
+          family: 'Pixelify Sans',
+          grade: 'B pixel sans',
+          purity: 'Medium-high: pixelated sans, some softened rhythm.',
+          readability: 'High.',
+          use: 'Good fallback if strict rectangle fonts feel too arcade.',
+          source: 'https://fonts.google.com/specimen/Pixelify+Sans',
+        },
+        {
+          family: 'DotGothic16',
+          grade: 'B bitmap gothic',
+          purity: 'Medium-high: bitmap construction, thinner strokes.',
+          readability: 'High for numbers and uppercase.',
+          use: 'Maybe useful for lighter technical labels.',
+          source: 'https://fonts.google.com/specimen/DotGothic16',
+        },
+        {
+          family: 'VT323',
+          grade: 'B terminal bitmap',
+          purity: 'Medium: terminal pixel style, not as block-solid.',
+          readability: 'High.',
+          use: 'Reference fallback, probably not first choice for 3D block text.',
+          source: 'https://fonts.google.com/specimen/VT323',
+        },
+      ];
+
+      const grid = document.querySelector('#font-grid');
+      const wordInput = document.querySelector('#word-input');
+      const digitInput = document.querySelector('#digit-input');
+
+      function render() {
+        const word = wordInput.value || 'CUBE3D VISUAL';
+        const digits = digitInput.value || '0123456789';
+        grid.innerHTML = candidates.map((font, index) => `
+          <article class="card">
+            <div class="card-header">
+              <h2 class="name">${index + 1}. ${font.family}</h2>
+              <span class="rank">${font.grade}</span>
+            </div>
+            <div class="preview" style="font-family: '${font.family}', monospace;">
+              <div class="word">${escapeHtml(word)}</div>
+              <div class="digits">${escapeHtml(digits)}</div>
+              <div class="alphabet">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br />abcdefghijklmnopqrstuvwxyz</div>
+            </div>
+            <div class="meta">
+              <div><strong>Rect:</strong> ${font.purity}</div>
+              <div><strong>Read:</strong> ${font.readability}</div>
+              <div><strong>Cube3D:</strong> ${font.use}</div>
+            </div>
+            <div class="source-row">
+              <a href="${font.source}" target="_blank" rel="noreferrer">Specimen</a>
+              <a href="https://developers.google.com/fonts/faq" target="_blank" rel="noreferrer">License baseline</a>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function escapeHtml(value) {
+        return value.replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[char]);
+      }
+
+      wordInput.addEventListener('input', render);
+      digitInput.addEventListener('input', render);
+      render();
+    </script>
+  </body>
+</html>
