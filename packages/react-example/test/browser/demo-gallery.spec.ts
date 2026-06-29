@@ -39,6 +39,7 @@ test.describe('WebGL reference demo gallery', () => {
       await comparePanels(page, testInfo, demo.id);
       await assertDemoStructure(page, demo);
       await assertProjectedGeometry(page, demo, testInfo);
+      await assertDemoDetails(page, demo);
     });
   }
 });
@@ -101,6 +102,17 @@ async function assertDemoStructure(page: Page, demo: DemoSpec) {
 
   await assertPrimitiveContracts(page, demo);
   await assertInteraction(page, demo);
+}
+
+async function assertDemoDetails(page: Page, demo: DemoSpec) {
+  await expect(page.locator(`[data-demo-details="${demo.id}"]`)).toBeVisible();
+  const tree = page.locator(`[data-demo-tree="${demo.id}"]`);
+  const code = page.locator(`[data-demo-code="${demo.id}"]`);
+  await expect(tree).toContainText(`${demo.root.id} <model:${demo.root.modelName ?? demo.root.id}>`);
+  await expect(tree).toContainText(demo.requiredPaths[0].split('/').at(-1) ?? demo.root.id);
+  await expect(code).toContainText(`id: '${demo.id}'`);
+  await expect(code).toContainText('createSceneFromSpec');
+  await expect(code).toContainText(demo.requiredPaths[0]);
 }
 
 async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {

@@ -9,6 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { CubeCandidate } from './CubeCandidate';
+import { DemoDetails } from './DemoDetails';
 import { demoDefinitions, getDemoSpec } from './registry';
 import { ThreeReference } from './ThreeReference';
 
@@ -73,6 +74,8 @@ export function DemoGallery() {
             </div>
           </figure>
         </div>
+
+        <DemoDetails spec={selected} />
       </section>
     </main>
   );
