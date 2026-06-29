@@ -9,6 +9,7 @@
 
 export type DemoId =
   | 'primitive-lab'
+  | 'text-extrude'
   | 'cylinder-8'
   | 'anchor-orientation'
   | 'pivot-origin'
@@ -266,6 +267,42 @@ export const demoSpecs: DemoSpec[] = [
       ],
     },
     requiredPaths: ['primitive-lab/box', 'primitive-lab/plane', 'primitive-lab/sprite', 'primitive-lab/extrude'],
+  },
+  {
+    id: 'text-extrude',
+    title: 'Text Extrude',
+    capability: 'HTML text rendered as layered pseudo 3D extrusion',
+    maxDiffRatio: 0.18,
+    root: {
+      id: 'text-extrude',
+      kind: 'model',
+      modelName: 'text-extrude',
+      children: [
+        box('plinth', [270, 118, 16], [58, 73, 213, 1], {
+          transform: { position: [34, 118, 0] },
+          faceColors: { top: [67, 80, 230, 1], front: [37, 47, 170, 1] },
+        }),
+        extrude('cubeText', [156, 42], [246, 213, 98, 1], {
+          transform: { position: [62, 116, 28], rotation: [0, 0, -8] },
+          layers: 9,
+          depth: 24,
+          label: 'CUBE3D',
+        }),
+        extrude('htmlText', [132, 34], [239, 130, 168, 1], {
+          transform: { position: [134, 68, 46], rotation: [0, 0, 10] },
+          layers: 6,
+          depth: 16,
+          label: 'HTML',
+        }),
+        sprite('caption', [112, 26], [88, 200, 121, 0.82], {
+          transform: { position: [182, 172, 38] },
+          label: 'live text',
+        }),
+      ],
+    },
+    requiredPaths: ['text-extrude/plinth', 'text-extrude/cubeText', 'text-extrude/htmlText', 'text-extrude/caption'],
+    projectionPaths: ['text-extrude/plinth', 'text-extrude/cubeText', 'text-extrude/htmlText'],
+    modelCounts: { 'text-extrude': 1 },
   },
   {
     id: 'cylinder-8',

@@ -121,6 +121,12 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   if (demo.id === 'primitive-lab') {
     await expectFaceBackgroundNotTransparent(page, 'primitive-lab/sprite');
   }
+  if (demo.id === 'text-extrude') {
+    assertTextExtrudeSpec(demo);
+    await expectExtrudeText(page, 'text-extrude/cubeText', 'CUBE3D', 9);
+    await expectExtrudeText(page, 'text-extrude/htmlText', 'HTML', 6);
+    await expect(page.locator('[data-cube3d-path="text-extrude/caption"]')).toContainText('live text');
+  }
   if (demo.id === 'nested-model') {
     await expectFaceBackgroundNotTransparent(page, 'character/controller/cord');
   }
@@ -159,6 +165,31 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     assertWorldBoundsSpec(demo);
     await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(2);
   }
+}
+
+function assertTextExtrudeSpec(demo: DemoSpec) {
+  const nodes = flattenDesignNodes(demo.root);
+  const cubeText = nodes.find(({ path }) => path === 'text-extrude/cubeText')?.node;
+  const htmlText = nodes.find(({ path }) => path === 'text-extrude/htmlText')?.node;
+  expect(cubeText?.kind).toBe('extrude');
+  expect(htmlText?.kind).toBe('extrude');
+  if (cubeText?.kind === 'model' || htmlText?.kind === 'model') return;
+  expect(cubeText?.layers).toBe(9);
+  expect(cubeText?.depth).toBe(24);
+  expect(cubeText?.label).toBe('CUBE3D');
+  expect(htmlText?.layers).toBe(6);
+  expect(htmlText?.depth).toBe(16);
+  expect(htmlText?.label).toBe('HTML');
+}
+
+async function expectExtrudeText(page: Page, path: string, text: string, layers: number) {
+  const node = page.locator(`[data-cube3d-path="${path}"]`);
+  await expect(node).toContainText(text);
+  await expect(node.locator('[data-cube3d-layer-index]')).toHaveCount(layers);
+  for (let index = 0; index < layers; index += 1) {
+    await expect(node.locator(`[data-cube3d-layer-index="${index}"]`)).toHaveCount(1);
+  }
+  await expectFaceBackgroundNotTransparent(page, path);
 }
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {

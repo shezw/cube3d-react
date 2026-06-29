@@ -78,6 +78,9 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
       },
       sprite: { front: <span style={spriteLabelStyle}>HTML</span> },
       extrude: { front: <span style={extrudeTextStyle}>ART</span> },
+      cubeText: { front: <span style={extrudeTextStyle}>CUBE3D</span> },
+      htmlText: { front: <span style={extrudeTextStyle}>HTML</span> },
+      caption: { front: <span style={spriteLabelStyle}>live text</span> },
       visualWord: { front: <span style={extrudeTextStyle}>VISUAL</span> },
       cubeWord: { front: <span style={extrudeTextStyle}>CUBE</span> },
     }),
@@ -109,7 +112,7 @@ function nodeFaceStyle(
   if (node.primitive?.kind === 'extrude') {
     return {
       color: index === 0 ? '#b9577b' : '#f07aa2',
-      fontSize: node.id === 'visualWord' || node.id === 'cubeWord' ? 25 : 30,
+      fontSize: node.id === 'visualWord' || node.id === 'cubeWord' || node.id === 'cubeText' ? 25 : 30,
       fontWeight: 900,
       fontFamily: 'Arial Black, Impact, sans-serif',
       lineHeight: 1,

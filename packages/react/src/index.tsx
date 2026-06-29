@@ -459,7 +459,7 @@ function renderPrimitiveFaces(
 ) {
   return faces.map((face, index) => {
     const isExtrude = primitive.kind === 'extrude';
-    const faceChildren = isExtrude ? children : faceContent?.[face.direction];
+    const faceChildren = isExtrude ? faceContent?.[face.direction] ?? children : faceContent?.[face.direction];
     return (
       <div
         key={`${face.direction}-${index}`}
