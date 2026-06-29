@@ -12,12 +12,13 @@ import * as THREE from 'three';
 import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
 import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
-import type { DesignNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';
+import type { DesignNode, DesignModelNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';
+import { defaultTypefaceFontId, getTypefaceFont } from './typefaceFonts';
 
 type TextGeometryCtor = new (text: string, parameters: Record<string, unknown>) => THREE.BufferGeometry;
 type TextReferenceRuntime = {
   TextGeometry: TextGeometryCtor;
-  font: unknown;
+  fontFor: (fontId?: string) => unknown;
 };
 
 let textReferenceRuntimePromise: Promise<TextReferenceRuntime> | undefined;
@@ -33,7 +34,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     let renderer: THREE.WebGLRenderer | undefined;
 
     async function renderReference() {
-      const textRuntime = hasLayeredText(spec.root) ? await loadTextReferenceRuntime() : undefined;
+      const textRuntime = hasTextReferenceGeometry(spec.root) ? await loadTextReferenceRuntime() : undefined;
       if (disposed) return;
 
       renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
@@ -64,6 +65,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
       rootPivot.updateMatrixWorld(true);
       host.dataset.referenceBounds = JSON.stringify(collectReferenceBounds(rootPivot, camera, renderer.domElement));
       host.dataset.referenceTextModes = JSON.stringify(collectReferenceTextModes(rootPivot));
+      host.dataset.referenceSolidTextModes = JSON.stringify(collectReferenceSolidTextModes(rootPivot));
     }
 
     void renderReference();
@@ -88,6 +90,11 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<
   group.matrixAutoUpdate = false;
   group.matrix.copy(cssMatrix(node.transform, primitiveOrigin(node)));
   parent.add(group);
+
+  if (designNode?.kind === 'model' && designNode.solidText && textRuntime) {
+    addSolidTextReference(group, designNode, textRuntime);
+    return;
+  }
 
   if (designNode?.kind === 'model' && designNode.referenceShape) {
     addReferenceShape(group, designNode.referenceShape);
@@ -255,7 +262,7 @@ function addLayeredTextReference(group: THREE.Group, primitive: Primitive, desig
   group.userData.cube3dReferenceText = true;
   const label = designNode.label ?? designNode.id;
   const geometry = new textRuntime.TextGeometry(label, {
-    font: textRuntime.font,
+    font: textRuntime.fontFor(defaultTypefaceFontId),
     size: primitive.size.y * 0.82,
     depth: primitive.depth,
     curveSegments: 4,
@@ -269,6 +276,33 @@ function addLayeredTextReference(group: THREE.Group, primitive: Primitive, desig
   ]);
   mesh.userData.primitiveKind = primitive.kind;
   mesh.userData.cube3dReferenceText = true;
+  group.add(mesh);
+  addEdges(mesh, geometry);
+}
+
+function addSolidTextReference(group: THREE.Group, designNode: DesignModelNode, textRuntime: TextReferenceRuntime) {
+  if (!designNode.solidText) return;
+
+  group.userData.cube3dReferenceText = true;
+  group.userData.cube3dReferenceSolidText = true;
+  group.userData.cube3dReferenceFontId = designNode.solidText.fontId;
+
+  const geometry = new textRuntime.TextGeometry(designNode.solidText.text, {
+    font: textRuntime.fontFor(designNode.solidText.fontId),
+    size: designNode.solidText.fontSize,
+    depth: designNode.solidText.depth,
+    curveSegments: 4,
+    bevelEnabled: false,
+  });
+  geometry.scale(1, -1, 1);
+
+  const mesh = new THREE.Mesh(geometry, [
+    materialFor({ kind: 'solid', rgba: [246, 213, 98, 1] }),
+    materialFor({ kind: 'solid', rgba: [186, 118, 62, 1] }),
+  ]);
+  mesh.userData.cube3dReferenceText = true;
+  mesh.userData.cube3dReferenceSolidText = true;
+  mesh.userData.cube3dReferenceFontId = designNode.solidText.fontId;
   group.add(mesh);
   addEdges(mesh, geometry);
 }
@@ -302,10 +336,23 @@ function collectReferenceTextModes(root: THREE.Object3D) {
   return paths.sort();
 }
 
-function hasLayeredText(node: DesignNode): boolean {
+function collectReferenceSolidTextModes(root: THREE.Object3D) {
+  const rows: Array<{ path: string; fontId: string }> = [];
+  root.traverse((object) => {
+    const path = object.userData.cube3dPath as string | undefined;
+    const fontId = object.userData.cube3dReferenceFontId as string | undefined;
+    if (path && object.userData.cube3dReferenceSolidText === true) {
+      rows.push({ path, fontId: fontId ?? defaultTypefaceFontId });
+    }
+  });
+  return rows.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function hasTextReferenceGeometry(node: DesignNode): boolean {
   if (node.kind === 'extrude' && node.renderMode === 'layered-text') return true;
+  if (node.kind === 'model' && node.solidText) return true;
   if (node.kind === 'model') {
-    return node.children.some((child) => hasLayeredText(child));
+    return node.children.some((child) => hasTextReferenceGeometry(child));
   }
   return false;
 }
@@ -314,12 +361,17 @@ function loadTextReferenceRuntime() {
   textReferenceRuntimePromise ??= Promise.all([
     import('three/examples/jsm/geometries/TextGeometry.js'),
     import('three/examples/jsm/loaders/FontLoader.js'),
-    import('../assets/fonts/helvetiker_bold.typeface.json'),
-  ]).then(([geometryModule, loaderModule, fontModule]) => {
+  ]).then(([geometryModule, loaderModule]) => {
     const FontLoaderCtor = loaderModule.FontLoader as new () => { parse: (json: unknown) => unknown };
+    const loader = new FontLoaderCtor();
+    const fontCache = new Map<string, unknown>();
     return {
       TextGeometry: geometryModule.TextGeometry as TextGeometryCtor,
-      font: new FontLoaderCtor().parse(fontModule.default),
+      fontFor: (fontId?: string) => {
+        const font = getTypefaceFont(fontId ?? defaultTypefaceFontId);
+        if (!fontCache.has(font.id)) fontCache.set(font.id, loader.parse(font.typeface));
+        return fontCache.get(font.id);
+      },
     };
   });
   return textReferenceRuntimePromise;

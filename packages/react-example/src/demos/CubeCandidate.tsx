@@ -10,8 +10,9 @@
 import React, { useMemo, useState } from 'react';
 import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
 import { Model3D, Scene3D, Space3D } from '@cube3d/react';
-import { createSceneFromSpec, findDesignNodeById } from './sceneFactory';
+import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
+import type { DesignPrimitiveNode } from './spec';
 
 export function CubeCandidate({ spec }: { spec: DemoSpec }) {
   const model = useMemo(() => createSceneFromSpec(spec), [spec]);
@@ -40,6 +41,7 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
   const [hovered, setHovered] = useState(false);
   const nodeFaceContent = useMemo(
     () => ({
+      ...solidTextFaceContent(spec),
       'button-box': {
         front: (
           <button
@@ -84,7 +86,7 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
       visualWord: { front: <span style={extrudeTextStyle}>VISUAL</span> },
       cubeWord: { front: <span style={extrudeTextStyle}>CUBE</span> },
     }),
-    [],
+    [spec],
   );
 
   return (
@@ -141,6 +143,21 @@ function nodeFaceStyle(
     };
   }
 
+  if (node.primitive?.kind === 'plane' && designNode?.kind !== 'model' && designNode.solidTextFace) {
+    return {
+      background: 'transparent',
+      overflow: 'visible',
+      pointerEvents: 'none',
+    };
+  }
+
+  if (node.primitive?.kind === 'plane' && designNode?.kind !== 'model' && designNode.solidTextEdge) {
+    return {
+      backfaceVisibility: 'hidden',
+      pointerEvents: 'none',
+    };
+  }
+
   if (node.primitive?.kind === 'plane' && designNode?.kind !== 'model' && designNode?.shape === 'circle') {
     return { borderRadius: '50%' };
   }
@@ -165,6 +182,57 @@ function nodeFaceStyle(
   }
 
   return undefined;
+}
+
+function solidTextFaceContent(spec: DemoSpec) {
+  const entries = flattenDesignNodes(spec.root)
+    .filter((entry): entry is { path: string; node: DesignPrimitiveNode } => (
+      entry.node.kind !== 'model' && (Boolean(entry.node.solidTextFace) || Boolean(entry.node.solidTextEdge))
+    ))
+    .map(({ node }) => [
+      node.id,
+      {
+        front: node.solidTextFace
+          ? <SolidTextSvgFace face={node.solidTextFace} />
+          : <SolidTextSideMarker edge={node.solidTextEdge!} />,
+      },
+    ] as const);
+  return Object.fromEntries(entries);
+}
+
+function SolidTextSvgFace({ face }: { face: NonNullable<DesignPrimitiveNode['solidTextFace']> }) {
+  return (
+    <svg
+      data-cube3d-face={face.role}
+      data-cube3d-glyph={face.glyph}
+      data-cube3d-glyph-index={face.glyphIndex}
+      data-cube3d-contours={face.contours.join(',')}
+      data-solid-text-face={face.role}
+      data-solid-text-glyph={face.glyph}
+      data-solid-text-glyph-index={face.glyphIndex}
+      viewBox={face.viewBox}
+      preserveAspectRatio="none"
+      style={solidTextSvgStyle}
+    >
+      <path d={face.path} fill={rgba(face.color)} fillRule="evenodd" />
+    </svg>
+  );
+}
+
+function SolidTextSideMarker({ edge }: { edge: NonNullable<DesignPrimitiveNode['solidTextEdge']> }) {
+  return (
+    <span
+      data-cube3d-face="side"
+      data-cube3d-glyph={edge.glyph}
+      data-cube3d-glyph-index={edge.glyphIndex}
+      data-cube3d-contour={edge.contour}
+      data-cube3d-contour-index={edge.contourIndex}
+      data-cube3d-edge-index={edge.edgeIndex}
+      data-cube3d-edge-role={edge.role}
+      data-solid-text-edge
+      style={solidTextSideMarkerStyle}
+    />
+  );
 }
 
 function countNodes(node: DemoSpec['root']): number {
@@ -224,3 +292,21 @@ const debugPanelStyle: React.CSSProperties = {
   background: 'rgba(0,0,0,0.36)',
   border: '1px solid rgba(255,255,255,0.16)',
 };
+
+const solidTextSvgStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  height: '100%',
+  overflow: 'visible',
+  pointerEvents: 'none',
+};
+
+const solidTextSideMarkerStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none',
+};
+
+function rgba(color: [number, number, number, number]) {
+  return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
+}

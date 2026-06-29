@@ -9,11 +9,21 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:browser": "playwright test cover-scene.spec.ts",
-    "test:webgl-reference": "playwright test demo-gallery.spec.ts"
+    "test:webgl-reference": "playwright test demo-gallery.spec.ts",
+    "generate:solid-typefaces": "node scripts/generate-solid-typefaces.mjs"
   },
   "dependencies": {
     "@cube3d/core": "workspace:*",
     "@cube3d/react": "workspace:*",
+    "@fontsource/dotgothic16": "^5.2.8",
+    "@fontsource/jersey-10": "^5.2.8",
+    "@fontsource/micro-5": "^5.2.7",
+    "@fontsource/pixelify-sans": "^5.2.7",
+    "@fontsource/press-start-2p": "^5.2.7",
+    "@fontsource/silkscreen": "^5.2.8",
+    "@fontsource/tiny5": "^5.2.7",
+    "@fontsource/vt323": "^5.2.7",
+    "opentype.js": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.185.0"
