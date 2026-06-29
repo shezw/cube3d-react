@@ -45,6 +45,8 @@ export type DesignMaterialMap = Partial<Record<'front' | 'back' | 'left' | 'righ
 
 export type DesignPrimitiveKind = 'box' | 'plane' | 'sprite' | 'extrude';
 
+export type TextExtrudeSmooth = 'min' | 'mid' | 'high' | 'max';
+
 export type WebGLReferenceShape = {
   kind: 'cylinder';
   radius: number;
@@ -64,6 +66,8 @@ export type DesignPrimitiveNode = {
   anchors?: DesignAnchorMap;
   layers?: number;
   depth?: number;
+  textHeight?: number;
+  textSmooth?: TextExtrudeSmooth;
   label?: string;
   shape?: 'circle';
   renderMode?: 'text-extrude';
@@ -285,15 +289,15 @@ export const demoSpecs: DemoSpec[] = [
         }),
         extrude('cubeText', [156, 42], [246, 213, 98, 1], {
           transform: { position: [62, 116, 28], rotation: [0, 0, -8] },
-          layers: 9,
-          depth: 24,
+          textHeight: 24,
+          textSmooth: 'max',
           label: 'CUBE3D',
           renderMode: 'text-extrude',
         }),
         extrude('htmlText', [132, 34], [239, 130, 168, 1], {
           transform: { position: [134, 68, 46], rotation: [0, 0, 10] },
-          layers: 6,
-          depth: 16,
+          textHeight: 16,
+          textSmooth: 'high',
           label: 'HTML',
           renderMode: 'text-extrude',
         }),
@@ -613,8 +617,8 @@ export const demoSpecs: DemoSpec[] = [
         islandNode,
         { ...cameraNode, transform: { position: [76, 48, 58] } },
         { ...characterNode, transform: { position: [190, -6, 64], scale: [0.78, 0.78, 0.78] } },
-        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, layers: 7, depth: 18, label: 'VISUAL', renderMode: 'text-extrude' }),
-        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, layers: 7, depth: 18, label: 'CUBE', renderMode: 'text-extrude' }),
+        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, textHeight: 18, textSmooth: 'mid', label: 'VISUAL', renderMode: 'text-extrude' }),
+        extrude('cubeWord', [112, 34], [246, 213, 98, 1], { transform: { position: [206, 164, 48] }, textHeight: 18, textSmooth: 'mid', label: 'CUBE', renderMode: 'text-extrude' }),
         box('prop', [44, 34, 24], [70, 178, 104, 1], { transform: { position: [256, 42, 42] } }),
       ],
     },

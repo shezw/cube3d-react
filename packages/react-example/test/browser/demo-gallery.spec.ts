@@ -15,6 +15,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
+import { resolveTextExtrudeDepth, resolveTextExtrudeLayers } from '../../src/demos/textExtrude';
 
 test.describe('WebGL reference demo gallery', () => {
   test('reference and candidate renderers are guarded against per-demo hardcoded scenes', async () => {
@@ -126,8 +127,8 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   if (demo.id === 'text-extrude') {
     assertTextExtrudeSpec(demo);
     await expectReferenceTextModes(page, ['text-extrude/cubeText', 'text-extrude/htmlText']);
-    await expectExtrudeText(page, 'text-extrude/cubeText', 'CUBE3D', 9);
-    await expectExtrudeText(page, 'text-extrude/htmlText', 'HTML', 6);
+    await expectExtrudeText(page, 'text-extrude/cubeText', 'CUBE3D', 24);
+    await expectExtrudeText(page, 'text-extrude/htmlText', 'HTML', 8);
     await expect(page.locator('[data-cube3d-path="text-extrude/caption"]')).toContainText('live text');
   }
   if (demo.id === 'nested-model') {
@@ -180,12 +181,16 @@ function assertTextExtrudeSpec(demo: DemoSpec) {
   expect(cubeText?.kind).toBe('extrude');
   expect(htmlText?.kind).toBe('extrude');
   if (cubeText?.kind === 'model' || htmlText?.kind === 'model') return;
-  expect(cubeText?.layers).toBe(9);
-  expect(cubeText?.depth).toBe(24);
+  expect(cubeText?.textHeight).toBe(24);
+  expect(cubeText?.textSmooth).toBe('max');
+  expect(resolveTextExtrudeLayers(cubeText!)).toBe(24);
+  expect(resolveTextExtrudeDepth(cubeText!)).toBe(24);
   expect(cubeText?.label).toBe('CUBE3D');
   expect(cubeText?.renderMode).toBe('text-extrude');
-  expect(htmlText?.layers).toBe(6);
-  expect(htmlText?.depth).toBe(16);
+  expect(htmlText?.textHeight).toBe(16);
+  expect(htmlText?.textSmooth).toBe('high');
+  expect(resolveTextExtrudeLayers(htmlText!)).toBe(8);
+  expect(resolveTextExtrudeDepth(htmlText!)).toBe(16);
   expect(htmlText?.label).toBe('HTML');
   expect(htmlText?.renderMode).toBe('text-extrude');
 }
@@ -440,7 +445,8 @@ async function assertPrimitiveContracts(page: Page, demo: DemoSpec) {
       await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`)).toHaveCount(1);
     }
     if (node.kind === 'extrude') {
-      await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-layer-index]`)).toHaveCount(node.layers ?? 6);
+      const expectedLayers = node.renderMode === 'text-extrude' ? resolveTextExtrudeLayers(node) : node.layers ?? 6;
+      await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-layer-index]`)).toHaveCount(expectedLayers);
     }
   }
 }

@@ -29,6 +29,7 @@ import {
   type Size3,
 } from '@cube3d/core';
 import type { DemoSpec, DesignAnchor, DesignAnchorMap, DesignModelNode, DesignNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';
+import { resolveTextExtrudeDepth, resolveTextExtrudeLayers } from './textExtrude';
 
 export function createSceneFromSpec(spec: DemoSpec): SceneNode {
   return createNode(spec.root);
@@ -107,8 +108,8 @@ function createPrimitive(node: DesignPrimitiveNode): Primitive {
   }
   return extrudePrimitive({
     size: size2(node.size),
-    depth: node.depth ?? 16,
-    layers: node.layers ?? 6,
+    depth: resolveTextExtrudeDepth(node),
+    layers: resolveTextExtrudeLayers(node),
     material,
   });
 }
