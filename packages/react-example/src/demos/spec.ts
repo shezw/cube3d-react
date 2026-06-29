@@ -7,8 +7,7 @@
     @email   : local
 */
 
-import { createOutlineSolidTextNode } from './solidText';
-import type { SolidFontId } from './solidFonts';
+import { createSilkscreenSolidTextNode } from './solidText';
 
 export type DemoId =
   | 'primitive-lab'
@@ -75,35 +74,18 @@ export type DesignPrimitiveNode = {
   label?: string;
   shape?: 'circle';
   renderMode?: 'layered-text';
-  solidTextFace?: SolidTextFace;
   interactive?: 'cube-face' | 'controller-button' | 'sprite-button';
 };
 
 export type SolidTextMetadata = {
-  fontId: SolidFontId;
-  fontName: string;
-  fontCandidateIndex: number;
-  fontSourcePackage: string;
-  fontSourceFile: string;
+  fontName: 'Silkscreen';
   text: string;
-  fontSize: number;
+  cellSize: number;
   depth: number;
-  projection: Vec2Tuple;
-  topFaces: number;
-  bottomFaces: number;
-  edgeFaces: number;
-  glyphs: Array<{
-    char: string;
-    contours: number;
-    edges: number;
-  }>;
-};
-
-export type SolidTextFace = {
-  role: 'top' | 'bottom' | 'edge';
-  path: string;
-  viewBox: [number, number, number, number];
-  color: Rgba;
+  frontRuns: number;
+  backRuns: number;
+  edgeRuns: number;
+  glyphCells: number;
 };
 
 export type DesignModelNode = {
@@ -358,13 +340,11 @@ export const demoSpecs: DemoSpec[] = [
           transform: { position: [24, 132, 0] },
           faceColors: { top: [67, 80, 230, 1], front: [37, 47, 170, 1] },
         }),
-        createOutlineSolidTextNode('solidWord', {
-          text: '01',
-          fontId: 'silkscreen',
-          fontSize: 84,
+        createSilkscreenSolidTextNode('solidWord', {
+          text: 'CUBE3D',
+          cellSize: 7,
           depth: 18,
-          transform: { position: [74, 90, 30], rotation: [0, 0, -4] },
-          projection: [14, 10],
+          transform: { position: [42, 104, 30], rotation: [0, 0, -4] },
           frontColor: [246, 213, 98, 1],
           backColor: [118, 75, 48, 1],
           edgeColor: [186, 118, 62, 1],
@@ -375,11 +355,9 @@ export const demoSpecs: DemoSpec[] = [
     requiredPaths: [
       'solid-text/base',
       'solid-text/solidWord',
-      'solid-text/solidWord/top-g0-0',
-      'solid-text/solidWord/bottom-g0-0',
-      'solid-text/solidWord/edge-g0-contour-0-0',
-      'solid-text/solidWord/edge-g0-contour-1-0',
-      'solid-text/solidWord/edge-g1-contour-0-0',
+      'solid-text/solidWord/front-r0-c0-n5',
+      'solid-text/solidWord/back-r0-c0-n5',
+      'solid-text/solidWord/edge-left-c0-r0-n7',
     ],
     projectionPaths: ['solid-text/base', 'solid-text/solidWord', 'solid-text/comparisonBlock'],
     modelCounts: { 'solid-text-demo': 1, 'solid-text': 1 },

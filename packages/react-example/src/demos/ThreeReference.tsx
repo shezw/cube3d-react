@@ -12,8 +12,7 @@ import * as THREE from 'three';
 import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
 import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
-import { createSolidTextLayout } from './solidText';
-import type { DesignNode, DesignPrimitiveNode, SolidTextMetadata, WebGLReferenceShape } from './spec';
+import type { DesignNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';
 
 type TextGeometryCtor = new (text: string, parameters: Record<string, unknown>) => THREE.BufferGeometry;
 type TextReferenceRuntime = {
@@ -65,7 +64,6 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
       rootPivot.updateMatrixWorld(true);
       host.dataset.referenceBounds = JSON.stringify(collectReferenceBounds(rootPivot, camera, renderer.domElement));
       host.dataset.referenceTextModes = JSON.stringify(collectReferenceTextModes(rootPivot));
-      host.dataset.referenceSolidTexts = JSON.stringify(collectReferenceSolidTexts(rootPivot));
     }
 
     void renderReference();
@@ -93,11 +91,6 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<
 
   if (designNode?.kind === 'model' && designNode.referenceShape) {
     addReferenceShape(group, designNode.referenceShape);
-    return;
-  }
-
-  if (designNode?.kind === 'model' && designNode.solidText) {
-    addSolidTextReference(group, designNode.solidText);
     return;
   }
 
@@ -309,17 +302,6 @@ function collectReferenceTextModes(root: THREE.Object3D) {
   return paths.sort();
 }
 
-function collectReferenceSolidTexts(root: THREE.Object3D) {
-  const paths: string[] = [];
-  root.traverse((object) => {
-    const path = object.userData.cube3dPath as string | undefined;
-    if (path && object.userData.cube3dReferenceSolidText === true) {
-      paths.push(path);
-    }
-  });
-  return paths.sort();
-}
-
 function hasLayeredText(node: DesignNode): boolean {
   if (node.kind === 'extrude' && node.renderMode === 'layered-text') return true;
   if (node.kind === 'model') {
@@ -351,29 +333,6 @@ function addReferenceShape(group: THREE.Group, shape: WebGLReferenceShape) {
     group.add(mesh);
     addEdges(mesh, geometry);
   }
-}
-
-function addSolidTextReference(group: THREE.Group, solidText: SolidTextMetadata) {
-  group.userData.cube3dReferenceSolidText = true;
-  const shapes = createSolidTextLayout(solidText.text, solidText.fontSize, solidText.fontId).flatMap((glyph) => {
-    const shapePath = new THREE.ShapePath();
-    for (const contour of glyph.contours) {
-      contour.points.forEach(([x, y], index) => {
-        if (index === 0) shapePath.moveTo(x, y);
-        else shapePath.lineTo(x, y);
-      });
-      const [firstX, firstY] = contour.points[0];
-      shapePath.lineTo(firstX, firstY);
-    }
-    return shapePath.toShapes(true);
-  });
-  const geometry = new THREE.ExtrudeGeometry(shapes, { depth: solidText.depth, bevelEnabled: false });
-  const mesh = new THREE.Mesh(geometry, [
-    materialFor({ kind: 'solid', rgba: [246, 213, 98, 1] }),
-    materialFor({ kind: 'solid', rgba: [186, 118, 62, 1] }),
-  ]);
-  group.add(mesh);
-  addEdges(mesh, geometry);
 }
 
 function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescriptor, designNode?: DesignPrimitiveNode) {

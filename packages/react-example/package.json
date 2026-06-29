@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "generate:solid-fonts": "node scripts/generate-solid-fonts.mjs",
     "test": "vitest",
     "test:browser": "playwright test cover-scene.spec.ts",
     "test:webgl-reference": "playwright test demo-gallery.spec.ts"
@@ -20,22 +19,12 @@
     "three": "^0.185.0"
   },
   "devDependencies": {
-    "@fontsource/dotgothic16": "^5.2.8",
-    "@fontsource/jersey-10": "^5.2.8",
-    "@fontsource/micro-5": "^5.2.7",
-    "@fontsource/pixelify-sans": "^5.2.7",
-    "@fontsource/press-start-2p": "^5.2.7",
-    "@fontsource/silkscreen": "^5.2.8",
-    "@fontsource/tiny5": "^5.2.7",
-    "@fontsource/vt323": "^5.2.7",
-    "@types/opentype.js": "^1.3.10",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.1",
     "jsdom": "^24.0.0",
-    "opentype.js": "^2.0.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.8",
     "vitest": "^1.6.0"

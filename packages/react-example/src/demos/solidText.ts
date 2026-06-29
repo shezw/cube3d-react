@@ -7,64 +7,89 @@
     @email   : local
 */
 
-import { defaultSolidFontId, getSolidFont, solidFonts, type SolidFontId } from './solidFonts';
-import type { DesignModelNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple } from './spec';
+import type { DesignModelNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';
 
-export type Point2 = [number, number];
-
-export type SolidTextContour = {
-  id: string;
-  points: Point2[];
-};
-
-export type PositionedSolidGlyph = {
-  index: number;
-  char: string;
-  x: number;
-  advance: number;
-  width: number;
-  height: number;
-  contours: SolidTextContour[];
-};
+type Cell = { col: number; row: number };
+type Run = { axis: 'x' | 'y'; col: number; row: number; length: number };
 
 export type SolidTextOptions = {
   text: string;
-  fontId?: SolidFontId;
-  fontSize: number;
+  cellSize: number;
   depth: number;
   transform?: DesignTransform;
-  projection?: Vec2Tuple;
   frontColor?: Rgba;
   backColor?: Rgba;
   edgeColor?: Rgba;
 };
 
-const defaultProjection: Vec2Tuple = [14, 10];
-const defaultLetterSpacing = 0.08;
+const glyphs: Record<string, string[]> = {
+  '3': [
+    '11110',
+    '00001',
+    '00001',
+    '01110',
+    '00001',
+    '00001',
+    '11110',
+  ],
+  B: [
+    '11110',
+    '10001',
+    '10001',
+    '11110',
+    '10001',
+    '10001',
+    '11110',
+  ],
+  C: [
+    '11111',
+    '10000',
+    '10000',
+    '10000',
+    '10000',
+    '10000',
+    '11111',
+  ],
+  D: [
+    '11110',
+    '10001',
+    '10001',
+    '10001',
+    '10001',
+    '10001',
+    '11110',
+  ],
+  E: [
+    '11111',
+    '10000',
+    '10000',
+    '11110',
+    '10000',
+    '10000',
+    '11111',
+  ],
+  U: [
+    '10001',
+    '10001',
+    '10001',
+    '10001',
+    '10001',
+    '10001',
+    '11111',
+  ],
+};
 
-export const solidTextFontOptions = solidFonts.map((font) => ({
-  id: font.id,
-  candidateIndex: font.candidateIndex,
-  family: font.family,
-  sourcePackage: font.sourcePackage,
-  sourceFile: font.sourceFile,
-}));
-
-export function createOutlineSolidTextNode(id: string, options: SolidTextOptions): DesignModelNode {
-  const fontId = options.fontId ?? defaultSolidFontId;
-  const font = getSolidFont(fontId);
-  const projection = options.projection ?? defaultProjection;
+export function createSilkscreenSolidTextNode(id: string, options: SolidTextOptions): DesignModelNode {
   const frontColor = options.frontColor ?? [246, 213, 98, 1];
-  const backColor = options.backColor ?? [118, 75, 48, 1];
-  const edgeColor = options.edgeColor ?? [186, 118, 62, 1];
-  const glyphLayout = createSolidTextLayout(options.text, options.fontSize, fontId);
-  const topNodes = glyphLayout.map((glyph) => glyphFaceNode(`top-g${glyph.index}-${glyph.char}`, glyph, 'top', frontColor, options.depth, [0, 0]));
-  const bottomNodes = glyphLayout.map((glyph) => glyphFaceNode(`bottom-g${glyph.index}-${glyph.char}`, glyph, 'bottom', backColor, 0, projection));
-  const edgeNodes = glyphLayout.flatMap((glyph) => glyph.contours.flatMap((contour) => (
-    contourSegments(contour.points).map((segment, edgeIndex) => (
-      edgeFaceNode(`edge-g${glyph.index}-${contour.id}-${edgeIndex}`, segment, projection, options.depth / 2, edgeColor)
-    ))
-  )));
+  const backColor = options.backColor ?? [130, 87, 54, 1];
+  const edgeColor = options.edgeColor ?? [176, 109, 58, 1];
+  const cells = layoutCells(options.text);
+  const frontRuns = filledRuns(cells);
+  const topEdges = horizontalEdgeRuns(cells, -1);
+  const bottomEdges = horizontalEdgeRuns(cells, 1);
+  const leftEdges = verticalEdgeRuns(cells, -1);
+  const rightEdges = verticalEdgeRuns(cells, 1);
+  const edgeRuns = [...topEdges, ...bottomEdges, ...leftEdges, ...rightEdges];
 
   return {
     id,
@@ -72,141 +97,136 @@ export function createOutlineSolidTextNode(id: string, options: SolidTextOptions
     modelName: 'solid-text',
     transform: options.transform,
     solidText: {
-      fontId,
-      fontName: font.family,
-      fontCandidateIndex: font.candidateIndex,
-      fontSourcePackage: font.sourcePackage,
-      fontSourceFile: font.sourceFile,
+      fontName: 'Silkscreen',
       text: options.text,
-      fontSize: options.fontSize,
+      cellSize: options.cellSize,
       depth: options.depth,
-      projection,
-      topFaces: topNodes.length,
-      bottomFaces: bottomNodes.length,
-      edgeFaces: edgeNodes.length,
-      glyphs: glyphLayout.map((glyph) => ({
-        char: glyph.char,
-        contours: glyph.contours.length,
-        edges: glyph.contours.reduce((sum, contour) => sum + contour.points.length, 0),
-      })),
+      frontRuns: frontRuns.length,
+      backRuns: frontRuns.length,
+      edgeRuns: edgeRuns.length,
+      glyphCells: cells.length,
     },
-    children: [...bottomNodes, ...edgeNodes, ...topNodes],
+    children: [
+      ...frontRuns.map((run) => plane(
+        `front-r${run.row}-c${run.col}-n${run.length}`,
+        [run.length * options.cellSize, options.cellSize],
+        frontColor,
+        [run.col * options.cellSize, run.row * options.cellSize, options.depth],
+      )),
+      ...frontRuns.map((run) => plane(
+        `back-r${run.row}-c${run.col}-n${run.length}`,
+        [run.length * options.cellSize, options.cellSize],
+        backColor,
+        [run.col * options.cellSize, run.row * options.cellSize, 0],
+      )),
+      ...topEdges.map((run) => horizontalEdgeBox('top', run, options.cellSize, options.depth, edgeColor)),
+      ...bottomEdges.map((run) => horizontalEdgeBox('bottom', run, options.cellSize, options.depth, edgeColor)),
+      ...leftEdges.map((run) => verticalEdgeBox('left', run, options.cellSize, options.depth, edgeColor)),
+      ...rightEdges.map((run) => verticalEdgeBox('right', run, options.cellSize, options.depth, edgeColor)),
+    ],
   };
 }
 
-export function createSolidTextLayout(text: string, fontSize: number, fontId: SolidFontId = defaultSolidFontId): PositionedSolidGlyph[] {
-  const font = getSolidFont(fontId);
+function layoutCells(text: string): Cell[] {
+  const cells: Cell[] = [];
   let cursor = 0;
-  return Array.from(text.toUpperCase()).flatMap((char, index) => {
+  for (const char of text.toUpperCase()) {
     if (char === ' ') {
-      cursor += fontSize * 0.6;
-      return [];
+      cursor += 3;
+      continue;
     }
-    const glyph = font.glyphs[char];
+    const glyph = glyphs[char];
     if (!glyph) {
-      cursor += fontSize * 0.6;
-      return [];
+      cursor += 6;
+      continue;
     }
-    const xOffset = cursor;
-    cursor += (glyph.advance + defaultLetterSpacing) * fontSize;
-    return [{
-      index,
-      char,
-      x: xOffset,
-      advance: glyph.advance * fontSize,
-      width: glyph.width * fontSize,
-      height: glyph.height * fontSize,
-      contours: glyph.contours.map((contour, contourIndex) => ({
-        id: `contour-${contourIndex}`,
-        points: contour.map(([x, y]) => [roundGeometry(xOffset + x * fontSize), roundGeometry(y * fontSize)] as Point2),
-      })),
-    }];
-  });
+    for (let row = 0; row < glyph.length; row += 1) {
+      for (let col = 0; col < glyph[row].length; col += 1) {
+        if (glyph[row][col] === '1') cells.push({ col: cursor + col, row });
+      }
+    }
+    cursor += glyph[0].length + 1;
+  }
+  return cells;
 }
 
-function glyphFaceNode(
-  id: string,
-  glyph: PositionedSolidGlyph,
-  role: 'top' | 'bottom',
-  color: Rgba,
-  z: number,
-  offset: Vec2Tuple,
-): DesignPrimitiveNode {
-  const contours = shiftContours(glyph.contours, offset);
-  const bounds = contourBounds(contours);
-  return {
-    id,
-    kind: 'sprite',
-    size: [bounds.width, bounds.height],
-    color: [color[0], color[1], color[2], 0],
-    transform: { position: [bounds.x, bounds.y, z] },
-    solidTextFace: {
-      role,
-      path: contoursToPath(contours, bounds.x, bounds.y),
-      viewBox: [0, 0, bounds.width, bounds.height],
-      color,
-    },
-  };
+function filledRuns(cells: Cell[]): Run[] {
+  const rows = groupBy(cells, (cell) => cell.row, (cell) => cell.col);
+  return Array.from(rows.entries()).flatMap(([row, cols]) => consecutiveRuns(cols).map((run) => ({ axis: 'x' as const, row, col: run.start, length: run.length })));
 }
 
-function edgeFaceNode(id: string, segment: [Point2, Point2], projection: Vec2Tuple, z: number, color: Rgba): DesignPrimitiveNode {
-  const [[x1, y1], [x2, y2]] = segment;
-  const contour: SolidTextContour = {
-    id,
-    points: [
-      [x1, y1],
-      [x2, y2],
-      [x2 + projection[0], y2 + projection[1]],
-      [x1 + projection[0], y1 + projection[1]],
-    ].map(([x, y]) => [roundGeometry(x), roundGeometry(y)] as Point2),
-  };
-  const bounds = contourBounds([contour]);
-  return {
-    id,
-    kind: 'sprite',
-    size: [bounds.width, bounds.height],
-    color: [color[0], color[1], color[2], 0],
-    transform: { position: [bounds.x, bounds.y, z] },
-    solidTextFace: {
-      role: 'edge',
-      path: contoursToPath([contour], bounds.x, bounds.y),
-      viewBox: [0, 0, bounds.width, bounds.height],
-      color,
-    },
-  };
+function horizontalEdgeRuns(cells: Cell[], direction: -1 | 1): Run[] {
+  const set = cellSet(cells);
+  const edges = cells.filter((cell) => !set.has(key(cell.col, cell.row + direction)));
+  return filledRuns(edges);
 }
 
-function shiftContours(contours: SolidTextContour[], offset: Vec2Tuple): SolidTextContour[] {
-  return contours.map((contour) => ({
-    ...contour,
-    points: contour.points.map(([x, y]) => [roundGeometry(x + offset[0]), roundGeometry(y + offset[1])] as Point2),
-  }));
+function verticalEdgeRuns(cells: Cell[], direction: -1 | 1): Run[] {
+  const set = cellSet(cells);
+  const edges = cells.filter((cell) => !set.has(key(cell.col + direction, cell.row)));
+  const cols = groupBy(edges, (cell) => cell.col, (cell) => cell.row);
+  return Array.from(cols.entries()).flatMap(([col, rows]) => consecutiveRuns(rows).map((run) => ({ axis: 'y' as const, col, row: run.start, length: run.length })));
 }
 
-function contourSegments(points: Point2[]): Array<[Point2, Point2]> {
-  return points.map((point, index) => [point, points[(index + 1) % points.length]]);
+function horizontalEdgeBox(kind: 'top' | 'bottom', run: Run, cellSize: number, depth: number, color: Rgba) {
+  const thickness = Math.max(2, cellSize * 0.22);
+  const y = kind === 'top' ? run.row * cellSize - thickness : (run.row + 1) * cellSize;
+  return box(
+    `edge-${kind}-r${run.row}-c${run.col}-n${run.length}`,
+    [run.length * cellSize, thickness, depth],
+    color,
+    [run.col * cellSize, y, 0],
+  );
 }
 
-function contourBounds(contours: SolidTextContour[]) {
-  const points = contours.flatMap((contour) => contour.points);
-  const minX = Math.min(...points.map(([x]) => x));
-  const maxX = Math.max(...points.map(([x]) => x));
-  const minY = Math.min(...points.map(([, y]) => y));
-  const maxY = Math.max(...points.map(([, y]) => y));
-  return {
-    x: roundGeometry(minX),
-    y: roundGeometry(minY),
-    width: roundGeometry(maxX - minX),
-    height: roundGeometry(maxY - minY),
-  };
+function verticalEdgeBox(kind: 'left' | 'right', run: Run, cellSize: number, depth: number, color: Rgba) {
+  const thickness = Math.max(2, cellSize * 0.22);
+  const x = kind === 'left' ? run.col * cellSize - thickness : (run.col + 1) * cellSize;
+  return box(
+    `edge-${kind}-c${run.col}-r${run.row}-n${run.length}`,
+    [thickness, run.length * cellSize, depth],
+    color,
+    [x, run.row * cellSize, 0],
+  );
 }
 
-function contoursToPath(contours: SolidTextContour[], offsetX: number, offsetY: number) {
-  return contours.map((contour) => (
-    contour.points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${roundGeometry(x - offsetX)} ${roundGeometry(y - offsetY)}`).join(' ') + ' Z'
-  )).join(' ');
+function groupBy(cells: Cell[], keyOf: (cell: Cell) => number, valueOf: (cell: Cell) => number) {
+  const groups = new Map<number, number[]>();
+  for (const cell of cells) {
+    const groupKey = keyOf(cell);
+    groups.set(groupKey, [...(groups.get(groupKey) ?? []), valueOf(cell)]);
+  }
+  for (const [groupKey, values] of groups.entries()) {
+    groups.set(groupKey, Array.from(new Set(values)).sort((a, b) => a - b));
+  }
+  return groups;
 }
 
-function roundGeometry(value: number) {
-  return Number(value.toFixed(3));
+function consecutiveRuns(values: number[]) {
+  const runs: Array<{ start: number; length: number }> = [];
+  for (const value of values) {
+    const last = runs.at(-1);
+    if (last && last.start + last.length === value) {
+      last.length += 1;
+    } else {
+      runs.push({ start: value, length: 1 });
+    }
+  }
+  return runs;
+}
+
+function cellSet(cells: Cell[]) {
+  return new Set(cells.map((cell) => key(cell.col, cell.row)));
+}
+
+function key(col: number, row: number) {
+  return `${col}:${row}`;
+}
+
+function plane(id: string, size: Vec2Tuple, color: Rgba, position: Vec3Tuple): DesignPrimitiveNode {
+  return { id, kind: 'plane', size, color, transform: { position } };
+}
+
+function box(id: string, size: Vec3Tuple, color: Rgba, position: Vec3Tuple): DesignPrimitiveNode {
+  return { id, kind: 'box', size, color, transform: { position } };
 }

@@ -10,9 +10,8 @@
 import React, { useMemo, useState } from 'react';
 import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
 import { Model3D, Scene3D, Space3D } from '@cube3d/react';
-import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
+import { createSceneFromSpec, findDesignNodeById } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
-import type { DesignPrimitiveNode } from './spec';
 
 export function CubeCandidate({ spec }: { spec: DemoSpec }) {
   const model = useMemo(() => createSceneFromSpec(spec), [spec]);
@@ -84,9 +83,8 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
       caption: { front: <span style={spriteLabelStyle}>live text</span> },
       visualWord: { front: <span style={extrudeTextStyle}>VISUAL</span> },
       cubeWord: { front: <span style={extrudeTextStyle}>CUBE</span> },
-      ...solidTextFaceContent(spec),
     }),
-    [spec],
+    [],
   );
 
   return (
@@ -133,14 +131,12 @@ function nodeFaceStyle(
   }
 
   if (node.primitive?.kind === 'sprite') {
-    const solidTextRole = designNode?.kind !== 'model' ? designNode?.solidTextFace?.role : undefined;
     return {
       display: 'grid',
       placeItems: 'center',
       overflow: 'visible',
       pointerEvents: interactive ? 'auto' : undefined,
       ...(designNode?.kind !== 'model' && designNode?.shape === 'circle' ? { borderRadius: '50%' } : undefined),
-      ...(solidTextRole ? { background: 'transparent', zIndex: solidTextRole === 'top' ? 3 : solidTextRole === 'edge' ? 2 : 1 } : undefined),
       ...(node.id === 'controller-hit' ? { background: 'transparent' } : undefined),
     };
   }
@@ -169,30 +165,6 @@ function nodeFaceStyle(
   }
 
   return undefined;
-}
-
-function solidTextFaceContent(spec: DemoSpec) {
-  return Object.fromEntries(
-    flattenDesignNodes(spec.root)
-      .filter((entry): entry is { path: string; node: DesignPrimitiveNode } => entry.node.kind !== 'model' && entry.node.solidTextFace != null)
-      .map(({ node }) => [
-        node.id,
-        {
-          front: (
-            <svg
-              data-solid-text-face={node.solidTextFace!.role}
-              viewBox={node.solidTextFace!.viewBox.join(' ')}
-              width="100%"
-              height="100%"
-              preserveAspectRatio="none"
-              style={{ display: 'block', overflow: 'visible' }}
-            >
-              <path d={node.solidTextFace!.path} fill={`rgba(${node.solidTextFace!.color.join(',')})`} fillRule="evenodd" />
-            </svg>
-          ),
-        },
-      ]),
-  );
 }
 
 function countNodes(node: DemoSpec['root']): number {
