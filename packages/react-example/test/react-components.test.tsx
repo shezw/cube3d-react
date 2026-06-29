@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Box3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '@cube3d/react';
+import { Character3D, characterMotionCss } from '../src/scene/Character3D';
 
 describe('React pseudo 3D scene', () => {
   it('renders the visual target capability mix', () => {
@@ -20,5 +21,20 @@ describe('React pseudo 3D scene', () => {
     expect(html.match(/data-cube3d-face=/g)).toHaveLength(6);
     expect(html).toContain('prop');
     expect(html.match(/ART/g)).toHaveLength(8);
+  });
+
+  it('renders the player as one grouped character object', () => {
+    const html = renderToStaticMarkup(
+      <Scene3D>
+        <Space3D rotation={{ x: 58, y: 0, z: -34 }}>
+          <style>{characterMotionCss}</style>
+          <Character3D position={{ x: 420, y: 18, z: 82 }} />
+        </Space3D>
+      </Scene3D>,
+    );
+
+    expect(html).toContain('data-scene-object="character"');
+    expect(html).toContain('cube3d-character-idle');
+    expect(html.match(/data-cube3d-face=/g)?.length).toBeGreaterThan(70);
   });
 });

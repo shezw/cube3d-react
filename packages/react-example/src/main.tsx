@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Box3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '@cube3d/react';
+import { Character3D, characterMotionCss } from './scene/Character3D';
 
 type Rgba = [number, number, number, number];
 
@@ -9,6 +10,7 @@ function App() {
 
   return (
     <main style={viewportStyle}>
+      <style>{characterMotionCss}</style>
       <div style={{ ...pageStyle, transform: `translate(-50%, -50%) scale(${scale})` }}>
         <div style={cornerStyle('left')} />
         <div style={cornerStyle('right')} />
@@ -78,7 +80,7 @@ function PortfolioIsland() {
       <Word3D text="ART" color={[246, 213, 98, 1]} position={{ x: 390, y: 164, z: 74 }} size={82} depth={36} />
 
       <RobotCamera />
-      <ArcadePlayer />
+      <Character3D position={{ x: 408, y: -2, z: 88 }} rotation={{ z: 0 }} scale={{ x: 1.22, y: 1.22, z: 1.22 }} />
       <TreeRing />
       <FloatingProps />
     </>
@@ -118,36 +120,6 @@ function RobotCamera() {
       <Box3D size={{ x: 46, y: 18, z: 24 }} position={{ x: 12, y: 88, z: -22 }} material={{ kind: 'solid', rgba: [62, 166, 232, 1] }} contrast={10} />
       <Sprite3D size={{ x: 220, y: 120 }} position={{ x: -40, y: 18, z: 44 }} faceStyle={beamStyle} />
     </Space3D>
-  );
-}
-
-function ArcadePlayer() {
-  return (
-    <Space3D position={{ x: 428, y: 38, z: 82 }}>
-      <Box3D size={{ x: 118, y: 84, z: 26 }} position={{ x: 0, y: 68, z: 0 }} material={{ kind: 'solid', rgba: [82, 83, 132, 1] }} contrast={10} />
-      <Box3D size={{ x: 94, y: 72, z: 44 }} position={{ x: 42, y: -8, z: 82 }} material={{ kind: 'solid', rgba: [84, 94, 239, 1] }} contrast={12} />
-      <Box3D size={{ x: 62, y: 58, z: 48 }} position={{ x: 58, y: -36, z: 132 }} material={{ kind: 'solid', rgba: [238, 225, 205, 1] }} contrast={12} />
-      <Box3D size={{ x: 82, y: 70, z: 16 }} position={{ x: 49, y: -52, z: 176 }} material={{ kind: 'solid', rgba: [246, 236, 220, 1] }} contrast={10} />
-      <Box3D size={{ x: 44, y: 52, z: 34 }} position={{ x: -28, y: 26, z: 66 }} material={{ kind: 'solid', rgba: [222, 184, 142, 1] }} contrast={10} />
-      <Box3D size={{ x: 42, y: 58, z: 42 }} position={{ x: 84, y: 45, z: 64 }} material={{ kind: 'solid', rgba: [218, 74, 92, 1] }} contrast={12} />
-      <ButtonDot color={[42, 183, 99, 1]} x={12} y={82} />
-      <ButtonDot color={[221, 139, 55, 1]} x={46} y={90} />
-      <ButtonDot color={[57, 154, 210, 1]} x={22} y={54} />
-      <Box3D size={{ x: 14, y: 14, z: 44 }} position={{ x: 84, y: 75, z: 26 }} material={{ kind: 'solid', rgba: [42, 45, 62, 1] }} contrast={6} />
-      <Sprite3D size={{ x: 80, y: 150 }} position={{ x: 110, y: 102, z: 16 }} faceStyle={cordStyle} />
-    </Space3D>
-  );
-}
-
-function ButtonDot({ color, x, y }: { color: Rgba; x: number; y: number }) {
-  return (
-    <Box3D
-      size={{ x: 20, y: 20, z: 8 }}
-      position={{ x, y, z: 28 }}
-      material={{ kind: 'solid', rgba: color }}
-      faceStyle={{ borderRadius: 999 }}
-      contrast={8}
-    />
   );
 }
 
@@ -299,13 +271,6 @@ const beamStyle: React.CSSProperties = {
     'linear-gradient(90deg, rgba(255,66,92,0.52), rgba(255,66,92,0.12) 46%, transparent 76%)',
   clipPath: 'polygon(0 46%, 100% 0, 100% 100%)',
   filter: 'blur(0.4px)',
-};
-
-const cordStyle: React.CSSProperties = {
-  borderLeft: '7px solid rgba(7,9,18,0.78)',
-  borderBottom: '7px solid rgba(7,9,18,0.78)',
-  borderRadius: '0 0 0 30px',
-  background: 'transparent',
 };
 
 const laptopStyle: React.CSSProperties = {
