@@ -16,6 +16,7 @@ import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } f
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';
+import { createSolidTextLayout, solidTextFontOptions } from '../../src/demos/solidText';
 
 test.describe('WebGL reference demo gallery', () => {
   test('reference and candidate renderers are guarded against per-demo hardcoded scenes', async () => {
@@ -133,11 +134,16 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   }
   if (demo.id === 'solid-text') {
     assertSolidTextSpec(demo);
+    const solidWord = flattenDesignNodes(demo.root).find(({ path }) => path === 'solid-text/solidWord')?.node;
+    const edgeCount = solidWord?.kind === 'model' ? solidWord.solidText?.edgeFaces ?? 0 : 0;
+    await expectReferenceSolidTexts(page, ['solid-text/solidWord']);
     await expect(page.locator('[data-cube3d-model="solid-text"]')).toHaveCount(1);
     await expect(page.locator('[data-cube3d-path="solid-text/solidWord"] [data-cube3d-layer-index]')).toHaveCount(0);
-    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/front-"]').count()).toBeGreaterThan(0);
-    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/back-"]').count()).toBeGreaterThan(0);
-    expect(await page.locator('[data-cube3d-path^="solid-text/solidWord/edge-"]').count()).toBeGreaterThan(0);
+    await expect(page.locator('[data-cube3d-path^="solid-text/solidWord/top-"] [data-solid-text-face="top"]')).toHaveCount(2);
+    await expect(page.locator('[data-cube3d-path^="solid-text/solidWord/bottom-"] [data-solid-text-face="bottom"]')).toHaveCount(2);
+    await expect(page.locator('[data-cube3d-path^="solid-text/solidWord/edge-"]')).toHaveCount(edgeCount);
+    await expect(page.locator('[data-cube3d-path^="solid-text/solidWord/edge-"] [data-solid-text-face="edge"]')).toHaveCount(edgeCount);
+    await expectSolidTextEdgesStayNearGlyph(page);
   }
   if (demo.id === 'nested-model') {
     await expectFaceBackgroundNotTransparent(page, 'character/controller/cord');
@@ -206,18 +212,31 @@ function assertLayeredTextSpec(demo: DemoSpec) {
 function assertSolidTextSpec(demo: DemoSpec) {
   const nodes = flattenDesignNodes(demo.root);
   const solidWord = nodes.find(({ path }) => path === 'solid-text/solidWord')?.node;
-  const front = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/front-'));
-  const back = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/back-'));
+  const top = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/top-'));
+  const bottom = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/bottom-'));
   const edges = nodes.filter(({ path }) => path.startsWith('solid-text/solidWord/edge-'));
+  const expectedLayout = createSolidTextLayout('01', 84, 'silkscreen');
   expect(solidWord?.kind).toBe('model');
   if (solidWord?.kind !== 'model') return;
+  expect(solidTextFontOptions.map((font) => font.candidateIndex)).toEqual([9, 10, 11, 12, 13, 17, 18, 19]);
+  expect(solidWord.solidText?.fontId).toBe('silkscreen');
   expect(solidWord.solidText?.fontName).toBe('Silkscreen');
-  expect(solidWord.solidText?.text).toBe('CUBE3D');
+  expect(solidWord.solidText?.fontCandidateIndex).toBe(10);
+  expect(solidWord.solidText?.fontSourcePackage).toBe('@fontsource/silkscreen');
+  expect(solidWord.solidText?.fontSourceFile).toMatch(/\.woff$/);
+  expect(solidWord.solidText?.text).toBe('01');
+  expect(solidWord.solidText?.fontSize).toBe(84);
   expect(solidWord.solidText?.depth).toBe(18);
-  expect(front).toHaveLength(solidWord.solidText?.frontRuns ?? 0);
-  expect(back).toHaveLength(solidWord.solidText?.backRuns ?? 0);
-  expect(edges).toHaveLength(solidWord.solidText?.edgeRuns ?? 0);
-  expect(edges.length).toBeGreaterThan(0);
+  expect(top).toHaveLength(solidWord.solidText?.topFaces ?? 0);
+  expect(bottom).toHaveLength(solidWord.solidText?.bottomFaces ?? 0);
+  expect(edges).toHaveLength(solidWord.solidText?.edgeFaces ?? 0);
+  expect(solidWord.solidText?.glyphs).toEqual(expectedLayout.map((glyph) => ({
+    char: glyph.char,
+    contours: glyph.contours.length,
+    edges: glyph.contours.reduce((sum, contour) => sum + contour.points.length, 0),
+  })));
+  expect(edges).toHaveLength(expectedLayout.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.points.length, 0), 0));
+  expect(edges.filter(({ node }) => node.kind !== 'model' && node.kind !== 'sprite')).toHaveLength(0);
   expect(nodes.filter(({ node }) => node.kind === 'extrude')).toHaveLength(0);
 }
 
@@ -251,6 +270,55 @@ async function expectReferenceTextModes(page: Page, expectedPaths: string[], for
   for (const forbiddenPath of forbiddenPaths) {
     expect(textModes, `${forbiddenPath} should remain primitive extrude reference geometry`).not.toContain(forbiddenPath);
   }
+}
+
+async function expectReferenceSolidTexts(page: Page, expectedPaths: string[]) {
+  const solidTexts = await page.locator('[data-reference-canvas]').evaluate((element) => JSON.parse((element as HTMLElement).dataset.referenceSolidTexts ?? '[]') as string[]);
+  for (const expectedPath of expectedPaths) {
+    expect(solidTexts, `${expectedPath} should use WebGL extruded solid text reference geometry`).toContain(expectedPath);
+  }
+}
+
+async function expectSolidTextEdgesStayNearGlyph(page: Page) {
+  const report = await page.evaluate(() => {
+    const rects = (selector: string) => Array.from(document.querySelectorAll(selector)).map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
+    });
+    const glyphRects = rects('[data-cube3d-path^="solid-text/solidWord/top-"], [data-cube3d-path^="solid-text/solidWord/bottom-"]');
+    const edgeRects = rects('[data-cube3d-path^="solid-text/solidWord/edge-"]');
+    const union = glyphRects.reduce((bounds, rect) => ({
+      left: Math.min(bounds.left, rect.left),
+      top: Math.min(bounds.top, rect.top),
+      right: Math.max(bounds.right, rect.right),
+      bottom: Math.max(bounds.bottom, rect.bottom),
+    }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+    const padding = 64;
+    const escaped = edgeRects.filter((rect) => (
+      rect.centerX < union.left - padding
+      || rect.centerX > union.right + padding
+      || rect.centerY < union.top - padding
+      || rect.centerY > union.bottom + padding
+      || rect.width <= 0
+      || rect.height <= 0
+      || rect.width > (union.right - union.left) + padding * 2
+      || rect.height > (union.bottom - union.top) + padding * 2
+    ));
+    return { glyphRects, edgeRects, union, escaped };
+  });
+
+  expect(report.glyphRects.length, 'solid text should have top/bottom glyph faces').toBeGreaterThan(0);
+  expect(report.edgeRects.length, 'solid text should have contour edge faces').toBeGreaterThan(0);
+  expect(report.escaped, 'solid text edge faces should stay attached to the glyph projection').toHaveLength(0);
 }
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {
