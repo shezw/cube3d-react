@@ -61,8 +61,31 @@ describe('solid text model', () => {
     expect(top.every(({ node }) => node.kind !== 'model' && node.kind === 'plane' && Boolean(node.solidTextFace))).toBe(true);
     expect(bottom.every(({ node }) => node.kind !== 'model' && node.kind === 'plane' && Boolean(node.solidTextFace))).toBe(true);
     expect(sides.every(({ node }) => node.kind !== 'model' && node.kind === 'plane' && Boolean(node.solidTextEdge))).toBe(true);
+    expect(sides.every(({ node }) => node.kind !== 'model' && node.transform?.pivot?.join(',') === '0,0,0')).toBe(true);
     expect(nodes.filter(({ node }) => node.kind === 'extrude')).toHaveLength(0);
     expect(nodes.filter(({ node }) => node.kind === 'box' && node.id.startsWith('side-'))).toHaveLength(0);
+  });
+
+  it('attaches side planes to contour edges with edge-origin pivots', () => {
+    const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
+    expect(spec).toBeTruthy();
+    const sides = flattenDesignNodes(spec!.root).filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model');
+    expect(sides.length).toBeGreaterThan(12);
+
+    const horizontal = sides.find(({ node }) => node.kind !== 'model' && (node.solidTextEdge?.role === 'top' || node.solidTextEdge?.role === 'bottom'))?.node;
+    const vertical = sides.find(({ node }) => node.kind !== 'model' && (node.solidTextEdge?.role === 'left' || node.solidTextEdge?.role === 'right'))?.node;
+    expect(horizontal?.kind).toBe('plane');
+    expect(vertical?.kind).toBe('plane');
+    if (horizontal?.kind === 'model' || vertical?.kind === 'model' || !horizontal || !vertical) return;
+
+    expect(horizontal.transform?.pivot).toEqual([0, 0, 0]);
+    expect(vertical.transform?.pivot).toEqual([0, 0, 0]);
+    expect(horizontal.transform?.rotation).toEqual([90, 0, 0]);
+    expect(vertical.transform?.rotation).toEqual([0, -90, 0]);
+    expect(horizontal.size[0]).toBeCloseTo(horizontal.solidTextEdge!.length, 3);
+    expect(horizontal.size[1]).toBe(18);
+    expect(vertical.size[0]).toBe(18);
+    expect(vertical.size[1]).toBeCloseTo(vertical.solidTextEdge!.length, 3);
   });
 
   it('parses glyph commands and closed contours from the actual font asset', () => {

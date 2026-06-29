@@ -299,7 +299,7 @@ function createGlyphFaceNodes(
           angle: round(angle),
           color: sideColor,
         },
-        { rotation: sidePlane.rotation },
+        { rotation: sidePlane.rotation, pivot: sidePlane.pivot },
       ));
     }
   });
@@ -469,6 +469,7 @@ function sidePlaneTransform(from: Point, to: Point, length: number, depth: numbe
       size: [length, depth] as Vec2Tuple,
       position: [Math.min(from.x, to.x), from.y, 0] as Vec3Tuple,
       rotation: [90, 0, 0] as Vec3Tuple,
+      pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
   if (Math.abs(dx) < 0.01) {
@@ -476,12 +477,14 @@ function sidePlaneTransform(from: Point, to: Point, length: number, depth: numbe
       size: [depth, length] as Vec2Tuple,
       position: [from.x, Math.min(from.y, to.y), 0] as Vec3Tuple,
       rotation: [0, -90, 0] as Vec3Tuple,
+      pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
   return {
     size: [length, depth] as Vec2Tuple,
     position: [from.x, from.y, 0] as Vec3Tuple,
     rotation: [90, 0, radiansToDegrees(Math.atan2(dy, dx))] as Vec3Tuple,
+    pivot: [0, 0, 0] as Vec3Tuple,
   };
 }
 
@@ -520,7 +523,7 @@ function plane(
   position: Vec3Tuple,
   solidTextFace?: SolidTextFaceMetadata,
   solidTextEdge?: SolidTextEdgeMetadata,
-  transform?: Pick<DesignTransform, 'rotation'>,
+  transform?: Pick<DesignTransform, 'rotation' | 'pivot'>,
 ): DesignPrimitiveNode {
   return {
     id,

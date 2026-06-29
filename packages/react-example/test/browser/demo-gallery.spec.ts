@@ -151,6 +151,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-contour="outer"]')).not.toHaveCount(0);
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-contour="inner"]')).not.toHaveCount(0);
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-edge-role]')).not.toHaveCount(0);
+    await expect(page.locator('[data-cube3d-path*="/side-"][data-cube3d-pivot="0,0,0"]')).not.toHaveCount(0);
   }
   if (demo.id === 'nested-model') {
     await expectFaceBackgroundNotTransparent(page, 'character/controller/cord');
