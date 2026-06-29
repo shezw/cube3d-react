@@ -4,7 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { findWorldNode, resolveScene } from '@cube3d/core';
 import { demoSpecs } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
-import { createTypefaceSolidTextNode, parseGlyphPathCommands, parseSolidTextGlyphs } from '../../src/demos/solidText';
+import {
+  createTypefaceSolidTextNode,
+  parseGlyphPathCommands,
+  parseSolidTextGlyphs,
+  solidTextDemoCharacterSet,
+  solidTextDemoDigits,
+  solidTextDemoLowercase,
+  solidTextDemoUppercase,
+} from '../../src/demos/solidText';
 import { defaultTypefaceFontId, getTypefaceFont, typefaceFontOptions } from '../../src/demos/typefaceFonts';
 
 const expectedFonts = [
@@ -34,29 +42,46 @@ describe('solid text model', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
     const nodes = flattenDesignNodes(spec!.root);
-    const solidWord = nodes.find(({ path }) => path === 'solid-text/solidWord')?.node;
-    expect(solidWord?.kind).toBe('model');
-    if (solidWord?.kind !== 'model') return;
+    const solidTextModels = [
+      ['solidUppercase', solidTextDemoUppercase],
+      ['solidLowercase', solidTextDemoLowercase],
+      ['solidDigits', solidTextDemoDigits],
+    ] as const;
 
-    const glyphModels = nodes.filter(({ path, node }) => path.startsWith('solid-text/solidWord/glyph-') && node.kind === 'model');
+    const glyphModels = nodes.filter(({ path, node }) => path.startsWith('solid-text/solid') && path.includes('/glyph-') && node.kind === 'model');
     const top = nodes.filter(({ path }) => path.includes('/top-'));
     const bottom = nodes.filter(({ path }) => path.includes('/bottom-'));
     const sides = nodes.filter(({ path }) => path.includes('/side-'));
 
-    expect(solidWord.solidText).toMatchObject({
-      fontId: defaultTypefaceFontId,
-      fontName: 'Press Start 2P',
-      sourceIndex: 9,
-      text: '012',
-      fontSize: 58,
-      depth: 18,
-    });
-    expect(glyphModels).toHaveLength(3);
-    expect(top).toHaveLength(solidWord.solidText!.topFaces);
-    expect(bottom).toHaveLength(solidWord.solidText!.bottomFaces);
-    expect(sides).toHaveLength(solidWord.solidText!.sideFaces);
-    expect(solidWord.solidText!.glyphs.map((glyph) => glyph.char)).toEqual(['0', '1', '2']);
-    expect(solidWord.solidText!.glyphs.every((glyph) => glyph.closed)).toBe(true);
+    for (const [id, text] of solidTextModels) {
+      const model = nodes.find(({ path }) => path === `solid-text/${id}`)?.node;
+      expect(model?.kind).toBe('model');
+      if (model?.kind !== 'model') throw new Error(`Missing ${id}`);
+      expect(model.solidText).toMatchObject({
+        fontId: defaultTypefaceFontId,
+        fontName: 'Press Start 2P',
+        sourceIndex: 9,
+        text,
+        fontSize: 9,
+        depth: 5,
+      });
+    }
+    expect(glyphModels).toHaveLength(solidTextDemoCharacterSet.length);
+    expect(top).toHaveLength(sumSolidTextFaces(nodes, 'topFaces'));
+    expect(bottom).toHaveLength(sumSolidTextFaces(nodes, 'bottomFaces'));
+    expect(sides).toHaveLength(sumSolidTextFaces(nodes, 'sideFaces'));
+    expect(
+      solidTextModels.map(([id]) => {
+        const model = nodes.find(({ path }) => path === `solid-text/${id}`)?.node;
+        if (model?.kind !== 'model') throw new Error(`Missing ${id}`);
+        return model.solidText!.glyphs.map((glyph) => glyph.char).join('');
+      }).join(''),
+    ).toBe(solidTextDemoCharacterSet);
+    expect(solidTextModels.every(([id]) => {
+      const model = nodes.find(({ path }) => path === `solid-text/${id}`)?.node;
+      if (model?.kind !== 'model') throw new Error(`Missing ${id}`);
+      return model.solidText!.glyphs.every((glyph) => glyph.closed);
+    })).toBe(true);
     expect(sides.length).toBeGreaterThan(12);
     expect(top.every(({ node }) => node.kind !== 'model' && node.kind === 'plane' && Boolean(node.solidTextFace))).toBe(true);
     expect(bottom.every(({ node }) => node.kind !== 'model' && node.kind === 'plane' && Boolean(node.solidTextFace))).toBe(true);
@@ -69,7 +94,12 @@ describe('solid text model', () => {
   it('attaches side planes to contour edges with edge-origin pivots', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
-    const sides = flattenDesignNodes(spec!.root).filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model');
+    const nodes = flattenDesignNodes(spec!.root);
+    const solidWord = nodes.find(({ path }) => path === 'solid-text/solidUppercase')?.node;
+    expect(solidWord?.kind).toBe('model');
+    if (solidWord?.kind !== 'model') return;
+    const depth = solidWord.solidText!.depth;
+    const sides = nodes.filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model');
     expect(sides.length).toBeGreaterThan(12);
 
     const byRole = (role: 'top' | 'bottom' | 'left' | 'right', contour: 'outer' | 'inner' = 'outer') => {
@@ -89,11 +119,11 @@ describe('solid text model', () => {
     expect(top.transform?.rotation).toEqual([90, 0, 0]);
     expect(top.transform?.position?.[2]).toBe(0);
     expect(bottom.transform?.rotation).toEqual([-90, 0, 0]);
-    expect(bottom.transform?.position?.[2]).toBe(18);
+    expect(bottom.transform?.position?.[2]).toBe(depth);
     expect(left.transform?.rotation).toEqual([0, -90, 0]);
     expect(left.transform?.position?.[2]).toBe(0);
     expect(right.transform?.rotation).toEqual([0, 90, 0]);
-    expect(right.transform?.position?.[2]).toBe(18);
+    expect(right.transform?.position?.[2]).toBe(depth);
     expect(top.size[0]).toBeCloseTo(top.solidTextEdge!.length, 3);
     expect(bottom.size[0]).toBeCloseTo(bottom.solidTextEdge!.length, 3);
     expect(left.size[1]).toBeCloseTo(left.solidTextEdge!.length, 3);
@@ -104,11 +134,11 @@ describe('solid text model', () => {
     const innerLeft = byRole('left', 'inner');
     const innerRight = byRole('right', 'inner');
     expect(innerTop.transform?.rotation).toEqual([-90, 0, 0]);
-    expect(innerTop.transform?.position?.[2]).toBe(18);
+    expect(innerTop.transform?.position?.[2]).toBe(depth);
     expect(innerBottom.transform?.rotation).toEqual([90, 0, 0]);
     expect(innerBottom.transform?.position?.[2]).toBe(0);
     expect(innerLeft.transform?.rotation).toEqual([0, 90, 0]);
-    expect(innerLeft.transform?.position?.[2]).toBe(18);
+    expect(innerLeft.transform?.position?.[2]).toBe(depth);
     expect(innerRight.transform?.rotation).toEqual([0, -90, 0]);
     expect(innerRight.transform?.position?.[2]).toBe(0);
   });
@@ -200,7 +230,7 @@ describe('solid text model', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
     const world = resolveScene(createSceneFromSpec(spec!));
-    const solidWord = findWorldNode(world, 'solid-text/solidWord');
+    const solidWord = findWorldNode(world, 'solid-text/solidUppercase');
     expect(solidWord?.node.modelName).toBe('solid-text');
     expect(solidWord?.worldBounds).toBeTruthy();
     expect(solidWord!.worldBounds!.max.x).toBeGreaterThan(solidWord!.worldBounds!.min.x);
@@ -225,6 +255,13 @@ function commandCoordinates(command: ReturnType<typeof parseGlyphPathCommands>[n
 
 function edgeCount(glyphs: ReturnType<typeof parseSolidTextGlyphs>) {
   return glyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.points.length - 1, 0), 0);
+}
+
+function sumSolidTextFaces(nodes: ReturnType<typeof flattenDesignNodes>, key: 'topFaces' | 'bottomFaces' | 'sideFaces') {
+  return nodes.reduce((sum, { node }) => {
+    if (node.kind !== 'model' || node.modelName !== 'solid-text') return sum;
+    return sum + (node.solidText?.[key] ?? 0);
+  }, 0);
 }
 
 function sideRoles(model: ReturnType<typeof createTypefaceSolidTextNode>) {

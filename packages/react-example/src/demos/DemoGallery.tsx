@@ -11,7 +11,7 @@ import React, { useMemo, useState } from 'react';
 import { CubeCandidate } from './CubeCandidate';
 import { DemoDetails } from './DemoDetails';
 import { demoDefinitions, getDemoSpec, type DemoSpec } from './registry';
-import { createTypefaceSolidTextNode } from './solidText';
+import { createSolidTextDemoNodes } from './solidText';
 import { ThreeReference } from './ThreeReference';
 import { defaultTypefaceFontId, type TypefaceFontId, typefaceFontOptions } from './typefaceFonts';
 
@@ -110,22 +110,20 @@ function withSolidTextFont(spec: DemoSpec, fontId: TypefaceFontId): DemoSpec {
     ...spec,
     root: {
       ...spec.root,
-      children: spec.root.children.map((child) => (
-        child.id === 'solidWord'
-          ? createTypefaceSolidTextNode('solidWord', {
-            text: '012',
-            fontId,
-            fontSize: 58,
-            depth: 18,
-            transform: { position: [54, 88, 30], rotation: [0, 0, -4] },
-            topColor: [246, 213, 98, 1],
-            bottomColor: [118, 75, 48, 1],
-            sideColor: [186, 118, 62, 1],
-          })
-          : child
-      )),
+      children: replaceSolidTextRows(spec, fontId),
     },
   };
+}
+
+function replaceSolidTextRows(spec: DemoSpec, fontId: TypefaceFontId) {
+  const rows = createSolidTextDemoNodes(fontId);
+  let inserted = false;
+  return spec.root.children.flatMap((child) => {
+    if (child.kind !== 'model' || child.modelName !== 'solid-text') return [child];
+    if (inserted) return [];
+    inserted = true;
+    return rows;
+  });
 }
 
 const pageStyle: React.CSSProperties = {

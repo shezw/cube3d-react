@@ -10,6 +10,30 @@
 import type { DesignModelNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';
 import { defaultTypefaceFontId, getTypefaceFont, type TypefaceFontId, type TypefaceGlyph, type TypefaceJson } from './typefaceFonts';
 
+export const solidTextDemoUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export const solidTextDemoLowercase = 'abcdefghijklmnopqrstuvwxyz';
+export const solidTextDemoDigits = '0123456789';
+export const solidTextDemoCharacterSet = `${solidTextDemoUppercase}${solidTextDemoLowercase}${solidTextDemoDigits}`;
+
+const solidTextDemoRows = [
+  { id: 'solidUppercase', text: solidTextDemoUppercase, position: [14, 58, 30] as Vec3Tuple },
+  { id: 'solidLowercase', text: solidTextDemoLowercase, position: [14, 88, 30] as Vec3Tuple },
+  { id: 'solidDigits', text: solidTextDemoDigits, position: [14, 118, 30] as Vec3Tuple },
+];
+
+export function createSolidTextDemoNodes(fontId: TypefaceFontId = defaultTypefaceFontId): DesignModelNode[] {
+  return solidTextDemoRows.map((row) => createTypefaceSolidTextNode(row.id, {
+    text: row.text,
+    fontId,
+    fontSize: 9,
+    depth: 5,
+    transform: { position: row.position, rotation: [0, 0, -4] },
+    topColor: [246, 213, 98, 1],
+    bottomColor: [118, 75, 48, 1],
+    sideColor: [186, 118, 62, 1],
+  }));
+}
+
 export type Point = { x: number; y: number };
 
 export type SolidTextPathCommand =
