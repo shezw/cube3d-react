@@ -16,7 +16,7 @@ import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } f
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';
-import { solidTextDemoCharactersPerRow, solidTextDemoCharacterSet, solidTextDemoRows } from '../../src/demos/solidText';
+import { solidTextDemoCharactersPerRow, solidTextDemoCharacterSet, solidTextDemoDepth, solidTextDemoFontSize, solidTextDemoRows } from '../../src/demos/solidText';
 import { defaultTypefaceFontId, typefaceFontOptions } from '../../src/demos/typefaceFonts';
 
 test.describe('WebGL reference demo gallery', () => {
@@ -233,8 +233,8 @@ function assertSolidTextSpec(demo: DemoSpec) {
     expect(model.solidText?.fontName).toBe('Press Start 2P');
     expect(model.solidText?.sourceIndex).toBe(9);
     expect(model.solidText?.text).toBe(text);
-    expect(model.solidText?.fontSize).toBe(14);
-    expect(model.solidText?.depth).toBe(7);
+    expect(model.solidText?.fontSize).toBe(solidTextDemoFontSize);
+    expect(model.solidText?.depth).toBe(solidTextDemoDepth);
   }
   expect(solidTextRows.slice(0, -1).every(([, text]) => text.length === solidTextDemoCharactersPerRow)).toBe(true);
   expect(solidTextRows.at(-1)?.[1].length).toBe(solidTextDemoCharacterSet.length % solidTextDemoCharactersPerRow);

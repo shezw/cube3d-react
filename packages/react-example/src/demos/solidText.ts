@@ -15,18 +15,20 @@ export const solidTextDemoLowercase = 'abcdefghijklmnopqrstuvwxyz';
 export const solidTextDemoDigits = '0123456789';
 export const solidTextDemoCharacterSet = `${solidTextDemoUppercase}${solidTextDemoLowercase}${solidTextDemoDigits}`;
 export const solidTextDemoCharactersPerRow = 8;
+export const solidTextDemoFontSize = 28;
+export const solidTextDemoDepth = 14;
 export const solidTextDemoRows = chunkText(solidTextDemoCharacterSet, solidTextDemoCharactersPerRow).map((text, index) => ({
   id: `solidRow${index + 1}`,
   text,
-  position: [20, 34 + index * 17, 30] as Vec3Tuple,
+  position: [10, 10 + index * 34, 30] as Vec3Tuple,
 }));
 
 export function createSolidTextDemoNodes(fontId: TypefaceFontId = defaultTypefaceFontId): DesignModelNode[] {
   return solidTextDemoRows.map((row) => createTypefaceSolidTextNode(row.id, {
     text: row.text,
     fontId,
-    fontSize: 14,
-    depth: 7,
+    fontSize: solidTextDemoFontSize,
+    depth: solidTextDemoDepth,
     transform: { position: row.position, rotation: [0, 0, -4] },
     topColor: [246, 213, 98, 1],
     bottomColor: [118, 75, 48, 1],

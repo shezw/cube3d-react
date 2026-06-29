@@ -10,6 +10,8 @@ import {
   parseSolidTextGlyphs,
   solidTextDemoCharactersPerRow,
   solidTextDemoCharacterSet,
+  solidTextDemoDepth,
+  solidTextDemoFontSize,
   solidTextDemoRows,
 } from '../../src/demos/solidText';
 import { defaultTypefaceFontId, getTypefaceFont, typefaceFontOptions } from '../../src/demos/typefaceFonts';
@@ -57,8 +59,8 @@ describe('solid text model', () => {
         fontName: 'Press Start 2P',
         sourceIndex: 9,
         text,
-        fontSize: 14,
-        depth: 7,
+        fontSize: solidTextDemoFontSize,
+        depth: solidTextDemoDepth,
       });
     }
     expect(solidTextModels.slice(0, -1).every(([, text]) => text.length === solidTextDemoCharactersPerRow)).toBe(true);

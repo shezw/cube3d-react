@@ -345,12 +345,12 @@ export const demoSpecs: DemoSpec[] = [
       kind: 'model',
       modelName: 'solid-text-demo',
       children: [
-        box('base', [360, 184, 16], [58, 73, 213, 1], {
-          transform: { position: [0, 158, 0] },
+        box('base', [380, 286, 16], [58, 73, 213, 1], {
+          transform: { position: [-8, 246, 0] },
           faceColors: { top: [67, 80, 230, 1], front: [37, 47, 170, 1] },
         }),
         ...createSolidTextDemoNodes(defaultTypefaceFontId),
-        box('comparisonBlock', [28, 28, 22], [239, 130, 168, 1], { transform: { position: [318, 32, 26] } }),
+        box('comparisonBlock', [28, 28, 22], [239, 130, 168, 1], { transform: { position: [330, 14, 26] } }),
       ],
     },
     requiredPaths: [
