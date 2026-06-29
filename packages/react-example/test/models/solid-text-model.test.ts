@@ -134,15 +134,22 @@ describe('solid text model', () => {
   it('treats VT323 as a curve-heavy font with lower Cube3D curve sampling', () => {
     const font = getTypefaceFont('vt323');
     expect(font.solidCurveSegments).toBe(1);
+    expect(font.solidPathCleanup).toEqual({ orthogonalize: true, axisSnapUnits: 10, minEdgeUnits: 8 });
 
     const defaultGlyphs = parseSolidTextGlyphs('012', font.typeface, 58);
     const sampledGlyphs = parseSolidTextGlyphs('012', font.typeface, 58, { curveSegments: font.solidCurveSegments });
+    const cleanedGlyphs = parseSolidTextGlyphs('012', font.typeface, 58, {
+      curveSegments: font.solidCurveSegments,
+      pathCleanup: font.solidPathCleanup,
+    });
     const defaultEdges = edgeCount(defaultGlyphs);
     const sampledEdges = edgeCount(sampledGlyphs);
-    const sourceCurves = sampledGlyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.sourceCurveSegments, 0), 0);
+    const cleanedEdges = edgeCount(cleanedGlyphs);
+    const sourceCurves = cleanedGlyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.sourceCurveSegments, 0), 0);
 
     expect(sourceCurves).toBeGreaterThan(80);
     expect(sampledEdges).toBeLessThan(defaultEdges / 3);
+    expect(cleanedEdges).toBeLessThan(sampledEdges);
 
     const model = createTypefaceSolidTextNode('vt323Word', {
       text: '012',
@@ -152,7 +159,9 @@ describe('solid text model', () => {
     });
     expect(model.solidText?.fontId).toBe('vt323');
     expect(model.solidText?.glyphs.reduce((sum, glyph) => sum + glyph.sourceCurveSegments, 0)).toBe(sourceCurves);
-    expect(model.solidText?.glyphs.reduce((sum, glyph) => sum + glyph.edgeCount, 0)).toBe(sampledEdges);
+    expect(model.solidText?.glyphs.reduce((sum, glyph) => sum + glyph.edgeCount, 0)).toBe(cleanedEdges);
+    expect(sideRoles(model)).not.toContain('curve-segment');
+    expect(sideRoles(model)).not.toContain('diagonal');
   });
 
   it('parses glyph commands and closed contours from the actual font asset', () => {
@@ -216,4 +225,13 @@ function commandCoordinates(command: ReturnType<typeof parseGlyphPathCommands>[n
 
 function edgeCount(glyphs: ReturnType<typeof parseSolidTextGlyphs>) {
   return glyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.points.length - 1, 0), 0);
+}
+
+function sideRoles(model: ReturnType<typeof createTypefaceSolidTextNode>) {
+  return flattenDesignNodes(model)
+    .filter(({ node }) => node.kind !== 'model' && Boolean(node.solidTextEdge))
+    .map(({ node }) => {
+      if (node.kind === 'model' || !node.solidTextEdge) throw new Error('Expected solid text side edge');
+      return node.solidTextEdge.role;
+    });
 }

@@ -75,6 +75,12 @@ export type SolidTextOptions = {
   sideColor?: Rgba;
 };
 
+export type SolidTextPathCleanup = {
+  orthogonalize?: boolean;
+  axisSnapUnits?: number;
+  minEdgeUnits?: number;
+};
+
 export type SolidTextMetadata = {
   fontId: string;
   fontName: string;
@@ -105,6 +111,7 @@ export function createTypefaceSolidTextNode(id: string, options: SolidTextOption
   const sideColor = options.sideColor ?? [186, 118, 62, 1];
   const glyphs = parseSolidTextGlyphs(options.text, font.typeface, options.fontSize, {
     curveSegments: font.solidCurveSegments,
+    pathCleanup: font.solidPathCleanup,
   });
 
   let topFaces = 0;
@@ -163,7 +170,7 @@ export function parseSolidTextGlyphs(
   text: string,
   typeface: TypefaceJson,
   fontSize: number,
-  options: { curveSegments?: number } = {},
+  options: { curveSegments?: number; pathCleanup?: SolidTextPathCleanup } = {},
 ): ParsedSolidTextGlyph[] {
   const resolution = typeface.resolution ?? 1000;
   const scale = fontSize / resolution;
@@ -179,7 +186,7 @@ export function parseSolidTextGlyphs(
     }
 
     const pathCommands = parseGlyphPathCommands(glyph);
-    const rawContours = buildContours(pathCommands, scale, cursor, curveSegments);
+    const rawContours = cleanRawContours(buildContours(pathCommands, scale, cursor, curveSegments), scale, options.pathCleanup);
     const contours = classifyContours(rawContours);
 
     if (contours.length > 0) {
@@ -390,6 +397,90 @@ function buildContours(commands: SolidTextPathCommand[], scale: number, cursor: 
   return contours;
 }
 
+function cleanRawContours(
+  contours: Array<{ points: Point[]; sourceCurveSegments: number }>,
+  scale: number,
+  cleanup?: SolidTextPathCleanup,
+) {
+  if (!cleanup?.orthogonalize) return contours;
+
+  const axisTolerance = Math.max(0, (cleanup.axisSnapUnits ?? 0) * scale);
+  const minEdgeLength = Math.max(0, (cleanup.minEdgeUnits ?? 0) * scale);
+  return contours
+    .map((contour) => ({
+      ...contour,
+      points: cleanContourPoints(contour.points, axisTolerance, minEdgeLength),
+    }))
+    .filter((contour) => contour.points.length > 3);
+}
+
+function cleanContourPoints(points: Point[], axisTolerance: number, minEdgeLength: number) {
+  let cleaned = points;
+  for (let pass = 0; pass < 2; pass += 1) {
+    cleaned = simplifyContourPoints(snapNearAxisEdges(cleaned, axisTolerance), minEdgeLength);
+  }
+  return snapNearAxisEdges(cleaned, axisTolerance);
+}
+
+function snapNearAxisEdges(points: Point[], axisTolerance: number) {
+  if (axisTolerance <= 0 || points.length < 2) return points;
+  const snapped = points.map((point) => ({ ...point }));
+  const closed = samePoint(points[0], points[points.length - 1]);
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    for (let index = 0; index < snapped.length - 1; index += 1) {
+      const from = snapped[index];
+      const to = snapped[index + 1];
+      snapEdgeEndpoint(from, to, axisTolerance);
+    }
+
+    if (closed) {
+      const first = snapped[0];
+      const penultimate = snapped[snapped.length - 2];
+      snapEdgeEndpoint(first, penultimate, axisTolerance);
+      const last = snapped[snapped.length - 1];
+      last.x = first.x;
+      last.y = first.y;
+    }
+  }
+  return snapped;
+}
+
+function snapEdgeEndpoint(from: Point, to: Point, axisTolerance: number) {
+  const dx = Math.abs(to.x - from.x);
+  const dy = Math.abs(to.y - from.y);
+  if (dx <= axisTolerance && dy > axisTolerance) to.x = from.x;
+  if (dy <= axisTolerance && dx > axisTolerance) to.y = from.y;
+}
+
+function simplifyContourPoints(points: Point[], minEdgeLength: number) {
+  const closed = points.length > 2 && samePoint(points[0], points[points.length - 1]);
+  const source = closed ? points.slice(0, -1) : points.slice();
+  const withoutTinyEdges = source.reduce<Point[]>((result, point) => {
+    const previous = result.at(-1);
+    if (!previous || distance(previous, point) >= minEdgeLength) result.push(point);
+    return result;
+  }, []);
+
+  const merged = mergeCollinearPoints(withoutTinyEdges);
+  if (closed && merged.length > 0) merged.push({ ...merged[0] });
+  return dedupePoints(merged);
+}
+
+function mergeCollinearPoints(points: Point[]) {
+  if (points.length < 3) return points;
+  const result: Point[] = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const point = points[index];
+    const next = points[(index + 1) % points.length];
+    const vertical = Math.abs(previous.x - point.x) < 0.001 && Math.abs(point.x - next.x) < 0.001;
+    const horizontal = Math.abs(previous.y - point.y) < 0.001 && Math.abs(point.y - next.y) < 0.001;
+    if (!vertical && !horizontal) result.push(point);
+  }
+  return result;
+}
+
 function classifyContours(rawContours: Array<{ points: Point[]; sourceCurveSegments: number }>): SolidTextContour[] {
   const contours = rawContours
     .filter((contour) => contour.points.length > 3)
@@ -464,11 +555,11 @@ function pointInPolygon(point: Point, polygon: Point[]) {
 }
 
 function classifySideRole(from: Point, to: Point, contour: SolidTextContour): SolidTextSideRole {
-  if (contour.sourceCurveSegments > 0 && Math.abs(to.x - from.x) >= 0.01 && Math.abs(to.y - from.y) >= 0.01) return 'curve-segment';
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  if (Math.abs(dy) < 0.01) return contour.role === 'outer' ? (dx >= 0 ? 'top' : 'bottom') : (dx >= 0 ? 'bottom' : 'top');
-  if (Math.abs(dx) < 0.01) return contour.role === 'outer' ? (dy >= 0 ? 'right' : 'left') : (dy >= 0 ? 'left' : 'right');
+  if (isNearHorizontal(dx, dy)) return contour.role === 'outer' ? (dx >= 0 ? 'top' : 'bottom') : (dx >= 0 ? 'bottom' : 'top');
+  if (isNearVertical(dx, dy)) return contour.role === 'outer' ? (dy >= 0 ? 'right' : 'left') : (dy >= 0 ? 'left' : 'right');
+  if (contour.sourceCurveSegments > 0) return 'curve-segment';
   return 'diagonal';
 }
 
@@ -476,7 +567,7 @@ function sidePlaneTransform(from: Point, to: Point, length: number, depth: numbe
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const isInner = contourRole === 'inner';
-  if (Math.abs(dy) < 0.01) {
+  if (isNearHorizontal(dx, dy)) {
     const unfoldFromDepth = isInner ? role === 'top' : role === 'bottom';
     return {
       size: [length, depth] as Vec2Tuple,
@@ -485,7 +576,7 @@ function sidePlaneTransform(from: Point, to: Point, length: number, depth: numbe
       pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
-  if (Math.abs(dx) < 0.01) {
+  if (isNearVertical(dx, dy)) {
     const unfoldFromDepth = isInner ? role === 'left' : role === 'right';
     return {
       size: [depth, length] as Vec2Tuple,
@@ -500,6 +591,14 @@ function sidePlaneTransform(from: Point, to: Point, length: number, depth: numbe
     rotation: [90, 0, radiansToDegrees(Math.atan2(dy, dx))] as Vec3Tuple,
     pivot: [0, 0, 0] as Vec3Tuple,
   };
+}
+
+function isNearHorizontal(dx: number, dy: number) {
+  return Math.abs(dy) < 0.01 || (Math.abs(dx) > 0.01 && Math.abs(dy / dx) <= 0.15);
+}
+
+function isNearVertical(dx: number, dy: number) {
+  return Math.abs(dx) < 0.01 || (Math.abs(dy) > 0.01 && Math.abs(dx / dy) <= 0.15);
 }
 
 function dedupePoints(points: Point[]) {

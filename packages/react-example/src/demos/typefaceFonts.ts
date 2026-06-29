@@ -48,6 +48,11 @@ export type TypefaceFontOption = {
   sourceIndex: 9 | 10 | 11 | 12 | 13 | 17 | 18 | 19;
   typeface: TypefaceJson;
   solidCurveSegments?: number;
+  solidPathCleanup?: {
+    orthogonalize?: boolean;
+    axisSnapUnits?: number;
+    minEdgeUnits?: number;
+  };
 };
 
 export const typefaceFontOptions = [
@@ -57,7 +62,14 @@ export const typefaceFontOptions = [
   { id: 'micro-5', label: 'Micro 5', sourceIndex: 12, typeface: micro5 as TypefaceJson },
   { id: 'jersey-10', label: 'Jersey 10', sourceIndex: 13, typeface: jersey10 as TypefaceJson },
   { id: 'dotgothic16', label: 'DotGothic16', sourceIndex: 17, typeface: dotgothic16 as TypefaceJson },
-  { id: 'vt323', label: 'VT323', sourceIndex: 18, typeface: vt323 as TypefaceJson, solidCurveSegments: 1 },
+  {
+    id: 'vt323',
+    label: 'VT323',
+    sourceIndex: 18,
+    typeface: vt323 as TypefaceJson,
+    solidCurveSegments: 1,
+    solidPathCleanup: { orthogonalize: true, axisSnapUnits: 10, minEdgeUnits: 8 },
+  },
   { id: 'pixelify-sans', label: 'Pixelify Sans', sourceIndex: 19, typeface: pixelifySans as TypefaceJson },
 ] as const satisfies readonly TypefaceFontOption[];
 
