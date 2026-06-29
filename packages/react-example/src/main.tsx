@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Box3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '@cube3d/react';
+import type { FaceDescriptor, SceneNode } from '@cube3d/core';
+import { Box3D, Extrude3D, Model3D, Scene3D, Space3D, Sprite3D } from '@cube3d/react';
 import { Character3D, characterMotionCss } from './scene/Character3D';
+import { createCameraNode, createIslandNode } from './scene/models';
 
 type Rgba = [number, number, number, number];
 
@@ -44,34 +46,7 @@ function App() {
 function PortfolioIsland() {
   return (
     <>
-      <Box3D
-        size={{ x: 560, y: 380, z: 64 }}
-        position={{ x: 0, y: 0, z: 0 }}
-        material={{ kind: 'solid', rgba: [58, 73, 213, 1] }}
-        materials={{
-          top: { kind: 'solid', rgba: [67, 80, 230, 1] },
-          front: { kind: 'solid', rgba: [37, 47, 170, 1] },
-          right: { kind: 'solid', rgba: [32, 41, 150, 1] },
-        }}
-        contrast={14}
-        faceStyle={(face) => ({
-          boxShadow: face.direction === 'top' ? '0 34px 90px rgba(0,0,0,0.34)' : undefined,
-        })}
-      />
-
-      <Plane3D
-        size={{ x: 190, y: 118 }}
-        position={{ x: 318, y: 228, z: 67 }}
-        material={{ kind: 'solid', rgba: [76, 87, 206, 0.36] }}
-        faceStyle={{
-          border: '1px solid rgba(255,255,255,0.12)',
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
-          backgroundSize: '26px 26px',
-        }}
-      >
-        <div style={parkLabelStyle}>PARK<br />Some<br />Family<br />LOVELY</div>
-      </Plane3D>
+      <Island3D />
 
       <Word3D text="DESIGN" color={[70, 170, 236, 1]} position={{ x: 44, y: 164, z: 70 }} size={42} depth={18} />
       <Word3D text="PORT" color={[124, 132, 255, 1]} position={{ x: 78, y: 218, z: 71 }} size={64} depth={28} />
@@ -111,16 +86,51 @@ function Word3D({ text, color, position, size, depth }: { text: string; color: R
 }
 
 function RobotCamera() {
+  const model = React.useMemo(() => createCameraNode(), []);
+
   return (
     <Space3D position={{ x: 155, y: 48, z: 78 }}>
-      <Box3D size={{ x: 72, y: 50, z: 52 }} material={{ kind: 'solid', rgba: [78, 144, 188, 1] }} contrast={12} />
-      <Box3D size={{ x: 28, y: 16, z: 20 }} position={{ x: 22, y: -11, z: 44 }} material={{ kind: 'solid', rgba: [217, 70, 93, 1] }} contrast={10} />
-      <Box3D size={{ x: 28, y: 56, z: 22 }} position={{ x: -15, y: 46, z: -16 }} material={{ kind: 'solid', rgba: [124, 169, 202, 1] }} contrast={9} />
-      <Box3D size={{ x: 20, y: 56, z: 22 }} position={{ x: 52, y: 46, z: -16 }} material={{ kind: 'solid', rgba: [101, 133, 164, 1] }} contrast={9} />
-      <Box3D size={{ x: 46, y: 18, z: 24 }} position={{ x: 12, y: 88, z: -22 }} material={{ kind: 'solid', rgba: [62, 166, 232, 1] }} contrast={10} />
-      <Sprite3D size={{ x: 220, y: 120 }} position={{ x: -40, y: 18, z: 44 }} faceStyle={beamStyle} />
+      <Model3D model={model} nodeFaceStyle={styleCameraNode} />
     </Space3D>
   );
+}
+
+function Island3D() {
+  const model = React.useMemo(() => createIslandNode(), []);
+
+  return (
+    <Model3D
+      model={model}
+      nodeFaceContent={{
+        parkGrid: <div style={parkLabelStyle}>PARK<br />Some<br />Family<br />LOVELY</div>,
+      }}
+      nodeFaceStyle={styleIslandNode}
+    />
+  );
+}
+
+function styleIslandNode(node: SceneNode, face: FaceDescriptor): React.CSSProperties | undefined {
+  if (node.id === 'base' && face.direction === 'top') {
+    return {
+      boxShadow: '0 34px 90px rgba(0,0,0,0.34)',
+    };
+  }
+
+  if (node.id === 'parkGrid') {
+    return {
+      border: '1px solid rgba(255,255,255,0.12)',
+      backgroundImage:
+        'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+      backgroundSize: '26px 26px',
+    };
+  }
+
+  return undefined;
+}
+
+function styleCameraNode(node: SceneNode): React.CSSProperties | undefined {
+  if (node.id !== 'beam') return undefined;
+  return beamStyle;
 }
 
 function TreeRing() {

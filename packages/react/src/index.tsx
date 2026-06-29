@@ -8,23 +8,36 @@ import React, {
 } from 'react';
 import type {
   AnimationOptions,
-  CubeFace,
-  FaceMaterials,
+  FaceDescriptor,
   FaceDirection,
+  FaceMaterials,
   Keyframes,
   Material,
   MaterialImage,
   MaterialSolid,
   PartialTransform3D,
+  Primitive,
+  SceneNode,
   Size2,
   Size3,
   Vec3,
 } from '@cube3d/core';
-import { createBoxFaces, materialToCss, transformToCss } from '@cube3d/core';
+import {
+  boxPrimitive,
+  extrudePrimitive,
+  getPrimitiveFaces,
+  groupNode,
+  materialToCss,
+  normalizeTransform,
+  planePrimitive,
+  primitiveNode,
+  spritePrimitive,
+} from '@cube3d/core';
 import { easingToCss, ensureStyle, keyframesToCss } from '@cube3d/css-renderer';
 
 export type Scene3DProps = {
   children?: React.ReactNode;
+  model?: SceneNode;
   perspective?: number;
   origin?: string;
   className?: string;
@@ -47,6 +60,7 @@ export function useScene3D(): SceneContextValue {
 
 export function Scene3D({
   children,
+  model,
   perspective = 900,
   origin = '50% 50%',
   className,
@@ -67,6 +81,7 @@ export function Scene3D({
           ...style,
         }}
       >
+        {model ? <Node3D node={model} /> : null}
         {children}
       </div>
     </SceneContext.Provider>
@@ -84,19 +99,111 @@ export type TransformProps = PartialTransform3D & {
   scale?: Partial<Vec3>;
 };
 
+export type Node3DProps = {
+  node: SceneNode;
+  children?: React.ReactNode;
+  faceContent?: Partial<Record<FaceDirection, React.ReactNode>>;
+  nodeFaceContent?: Record<string, React.ReactNode | Partial<Record<FaceDirection, React.ReactNode>>>;
+  faceClassName?: string;
+  faceStyle?: React.CSSProperties | ((face: FaceDescriptor, index: number) => React.CSSProperties | undefined);
+  nodeFaceStyle?: (node: SceneNode, face: FaceDescriptor, index: number) => React.CSSProperties | undefined;
+  className?: string;
+  style?: React.CSSProperties;
+};
+
+export function Node3D({ node, children, faceContent, nodeFaceContent, faceClassName, faceStyle, nodeFaceStyle, className, style }: Node3DProps) {
+  const primitive = node.primitive;
+  const faces = primitive ? getPrimitiveFaces(primitive) : [];
+  const resolvedFaceContent = faceContent ?? contentForNode(nodeFaceContent?.[node.id]);
+
+  return (
+    <div
+      data-cube3d-node={node.id}
+      data-cube3d-model={node.kind === 'model' ? node.modelName : undefined}
+      data-cube3d-primitive={primitive?.kind}
+      className={className}
+      style={{
+        position: 'absolute',
+        width: primitive ? `${primitiveSize(primitive).x}px` : undefined,
+        height: primitive ? `${primitiveSize(primitive).y}px` : undefined,
+        transformStyle: 'preserve-3d',
+        transformOrigin: '50% 50%',
+        transform: transformToCss(node.transform),
+        ...style,
+      }}
+    >
+      {Object.entries(node.anchors ?? {}).map(([id, anchor]) => (
+        <span
+          key={id}
+          data-cube3d-anchor={id}
+          style={{
+            position: 'absolute',
+            width: 0,
+            height: 0,
+            pointerEvents: 'none',
+            transform: transformToCss({ position: anchor.position, rotation: anchor.rotation }),
+          }}
+        />
+      ))}
+
+      {primitive ? renderPrimitiveFaces(
+        primitive,
+        faces,
+        resolvedFaceContent,
+        faceClassName,
+        (face, index) => ({
+          ...(typeof faceStyle === 'function' ? faceStyle(face, index) : faceStyle),
+          ...nodeFaceStyle?.(node, face, index),
+        }),
+        children,
+      ) : null}
+      {(node.children ?? []).map((child) => (
+        <Node3D
+          key={child.id}
+          node={child}
+          faceClassName={faceClassName}
+          faceStyle={faceStyle}
+          nodeFaceContent={nodeFaceContent}
+          nodeFaceStyle={nodeFaceStyle}
+        />
+      ))}
+      {primitive?.kind === 'extrude' ? null : children}
+    </div>
+  );
+}
+
+export type Model3DProps = Omit<Node3DProps, 'node'> & {
+  model: SceneNode;
+};
+
+export function Model3D({ model, ...props }: Model3DProps) {
+  return <Node3D node={model} {...props} />;
+}
+
+export type Part3DProps = Node3DProps;
+
+export function Part3D(props: Part3DProps) {
+  return <Node3D {...props} />;
+}
+
 export type Group3DProps = TransformProps & {
   children?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
   size?: Partial<Size3>;
   origin?: string;
+  id?: string;
 };
 
 export const Group3D = forwardRef<NodeHandle, Group3DProps>(function Group3D(
-  { children, className, style, size, origin = '50% 50%', position, rotation, scale },
+  { children, className, style, size, origin = '50% 50%', position, rotation, scale, id = 'group' },
   ref,
 ) {
   const elRef = useRef<HTMLDivElement>(null);
+  const node = useMemo(
+    () => groupNode({ id, transform: { position, rotation, scale } }),
+    [id, position?.x, position?.y, position?.z, rotation?.x, rotation?.y, rotation?.z, scale?.x, scale?.y, scale?.z],
+  );
 
   useImperativeHandle(
     ref,
@@ -125,6 +232,7 @@ export const Group3D = forwardRef<NodeHandle, Group3DProps>(function Group3D(
   return (
     <div
       ref={elRef}
+      data-cube3d-node={node.id}
       className={className}
       style={{
         position: 'absolute',
@@ -132,7 +240,7 @@ export const Group3D = forwardRef<NodeHandle, Group3DProps>(function Group3D(
         height: size?.y == null ? undefined : `${size.y}px`,
         transformStyle: 'preserve-3d',
         transformOrigin: origin,
-        transform: transformToCss({ position, rotation, scale }),
+        transform: transformToCss(node.transform),
         ...style,
       }}
     >
@@ -155,6 +263,7 @@ export type Plane3DProps = TransformProps & {
   style?: React.CSSProperties;
   faceStyle?: React.CSSProperties;
   origin?: string;
+  id?: string;
 };
 
 export function Plane3D({
@@ -164,53 +273,54 @@ export function Plane3D({
   className,
   style,
   faceStyle,
-  origin = '50% 50%',
   position,
   rotation,
   scale,
+  id = 'plane',
 }: Plane3DProps) {
-  return (
-    <Group3D
-      className={className}
-      size={{ x: size.x, y: size.y, z: 0 }}
-      origin={origin}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-      style={style}
-    >
-      <div
-        data-cube3d-plane
-        style={{
-          position: 'absolute',
-          inset: 0,
-          boxSizing: 'border-box',
-          background: materialToCss(material),
-          transformStyle: 'preserve-3d',
-          backfaceVisibility: 'visible',
-          ...faceStyle,
-        }}
-      >
-        {children}
-      </div>
-    </Group3D>
+  const node = useMemo(
+    () => primitiveNode({ id, primitive: planePrimitive({ size, material }), transform: { position, rotation, scale } }),
+    [id, size.x, size.y, materialKey(material), position?.x, position?.y, position?.z, rotation?.x, rotation?.y, rotation?.z, scale?.x, scale?.y, scale?.z],
   );
+
+  return <Node3D node={node} className={className} style={style} faceStyle={faceStyle}>{children}</Node3D>;
 }
 
 export type Sprite3DProps = Plane3DProps & {
   alignToCamera?: boolean;
 };
 
-export function Sprite3D({ alignToCamera: _alignToCamera, faceStyle, ...props }: Sprite3DProps) {
+export function Sprite3D({
+  alignToCamera: _alignToCamera,
+  size,
+  material,
+  children,
+  className,
+  style,
+  faceStyle,
+  position,
+  rotation,
+  scale,
+  id = 'sprite',
+}: Sprite3DProps) {
+  const node = useMemo(
+    () => primitiveNode({ id, primitive: spritePrimitive({ size, material }), transform: { position, rotation, scale } }),
+    [id, size.x, size.y, materialKey(material), position?.x, position?.y, position?.z, rotation?.x, rotation?.y, rotation?.z, scale?.x, scale?.y, scale?.z],
+  );
+
   return (
-    <Plane3D
-      {...props}
+    <Node3D
+      node={node}
+      className={className}
+      style={style}
       faceStyle={{
         backgroundColor: 'transparent',
         overflow: 'visible',
         ...faceStyle,
       }}
-    />
+    >
+      {children}
+    </Node3D>
   );
 }
 
@@ -221,10 +331,11 @@ export type Cube3DProps = TransformProps & {
   contrast?: number;
   faces?: Partial<Record<FaceDirection, React.ReactNode>>;
   faceClassName?: string;
-  faceStyle?: React.CSSProperties | ((face: CubeFace) => React.CSSProperties | undefined);
+  faceStyle?: React.CSSProperties | ((face: FaceDescriptor) => React.CSSProperties | undefined);
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
+  id?: string;
 };
 
 export function Cube3D({
@@ -241,51 +352,24 @@ export function Cube3D({
   position,
   rotation,
   scale,
+  id = 'box',
 }: Cube3DProps) {
-  const cubeFaces = useMemo(
-    () => createBoxFaces({ size, material, materials, contrast }),
-    [size.x, size.y, size.z, material?.rgba.join(','), materialKey(materials), contrast],
+  const node = useMemo(
+    () => primitiveNode({ id, primitive: boxPrimitive({ size, material, materials, contrast }), transform: { position, rotation, scale } }),
+    [id, size.x, size.y, size.z, material?.rgba.join(','), materialMapKey(materials), contrast, position?.x, position?.y, position?.z, rotation?.x, rotation?.y, rotation?.z, scale?.x, scale?.y, scale?.z],
   );
 
   return (
-    <Group3D
+    <Node3D
+      node={node}
       className={className}
-      size={size}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-      style={{
-        ...style,
-      }}
+      style={style}
+      faceContent={faces}
+      faceClassName={faceClassName}
+      faceStyle={(face) => (typeof faceStyle === 'function' ? faceStyle(face) : faceStyle)}
     >
-      {cubeFaces.map((face) => (
-        <div
-          key={face.direction}
-          data-cube3d-face={face.direction}
-          className={faceClassName}
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            width: `${face.size.x}px`,
-            height: `${face.size.y}px`,
-            boxSizing: 'border-box',
-            overflow: 'hidden',
-            background: materialToCss(face.material),
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center',
-            backgroundSize: 'cover',
-            transformStyle: 'preserve-3d',
-            backfaceVisibility: 'visible',
-            transform: face.transform,
-            ...(typeof faceStyle === 'function' ? faceStyle(face) : faceStyle),
-          }}
-        >
-          {faces?.[face.direction]}
-        </div>
-      ))}
       {children}
-    </Group3D>
+    </Node3D>
   );
 }
 
@@ -297,16 +381,19 @@ export function Box3D(props: Box3DProps) {
 
 export type Extrude3DProps = TransformProps & {
   children: React.ReactNode;
+  size?: Size2;
   depth?: number;
   layers?: number;
   className?: string;
   style?: React.CSSProperties;
   layerClassName?: string;
   layerStyle?: React.CSSProperties | ((layer: { index: number; progress: number; isFront: boolean }) => React.CSSProperties | undefined);
+  id?: string;
 };
 
 export function Extrude3D({
   children,
+  size = { x: 0, y: 0 },
   depth = 24,
   layers = 10,
   className,
@@ -316,40 +403,102 @@ export function Extrude3D({
   position,
   rotation,
   scale,
+  id = 'extrude',
 }: Extrude3DProps) {
   const safeLayers = Math.max(1, Math.floor(layers));
-  const step = safeLayers === 1 ? 0 : depth / (safeLayers - 1);
+  const node = useMemo(
+    () => primitiveNode({ id, primitive: extrudePrimitive({ size, depth, layers: safeLayers }), transform: { position, rotation, scale } }),
+    [id, size.x, size.y, depth, safeLayers, position?.x, position?.y, position?.z, rotation?.x, rotation?.y, rotation?.z, scale?.x, scale?.y, scale?.z],
+  );
 
   return (
-    <Group3D className={className} position={position} rotation={rotation} scale={scale} style={style}>
-      {Array.from({ length: safeLayers }, (_, index) => {
+    <Node3D
+      node={node}
+      className={className}
+      style={style}
+      faceClassName={layerClassName}
+      faceStyle={(face, index) => {
         const progress = safeLayers === 1 ? 1 : index / (safeLayers - 1);
-        const isFront = index === safeLayers - 1;
-        return (
-          <div
-            key={index}
-            aria-hidden={isFront ? undefined : true}
-            className={layerClassName}
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              transformStyle: 'preserve-3d',
-              transform: `translateZ(${index * step}px)`,
-              ...(typeof layerStyle === 'function' ? layerStyle({ index, progress, isFront }) : layerStyle),
-            }}
-          >
-            {children}
-          </div>
-        );
-      })}
-    </Group3D>
+        return typeof layerStyle === 'function' ? layerStyle({ index, progress, isFront: index === safeLayers - 1 }) : layerStyle;
+      }}
+    >
+      {children}
+    </Node3D>
   );
 }
 
-function materialKey(materials?: FaceMaterials): string {
+function renderPrimitiveFaces(
+  primitive: Primitive,
+  faces: FaceDescriptor[],
+  faceContent?: Partial<Record<FaceDirection, React.ReactNode>>,
+  faceClassName?: string,
+  faceStyle?: React.CSSProperties | ((face: FaceDescriptor, index: number) => React.CSSProperties | undefined),
+  children?: React.ReactNode,
+) {
+  return faces.map((face, index) => {
+    const isExtrude = primitive.kind === 'extrude';
+    const faceChildren = isExtrude ? children : faceContent?.[face.direction];
+    return (
+      <div
+        key={`${face.direction}-${index}`}
+        data-cube3d-face={face.direction}
+        data-cube3d-plane={primitive.kind === 'plane' ? true : undefined}
+        className={faceClassName}
+        style={{
+          position: 'absolute',
+          left: isExtrude ? 0 : '50%',
+          top: isExtrude ? 0 : '50%',
+          width: face.size.x === 0 ? undefined : `${face.size.x}px`,
+          height: face.size.y === 0 ? undefined : `${face.size.y}px`,
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+          background: materialToCss(face.material),
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+          transformStyle: 'preserve-3d',
+          backfaceVisibility: 'visible',
+          transform: `${isExtrude ? '' : 'translate(-50%, -50%) '}${transformToCss(face.transform)}`,
+          ...(typeof faceStyle === 'function' ? faceStyle(face, index) : faceStyle),
+        }}
+      >
+        {faceChildren}
+      </div>
+    );
+  });
+}
+
+function primitiveSize(primitive: Primitive): Size2 {
+  if (primitive.kind === 'box') return { x: primitive.size.x, y: primitive.size.y };
+  return primitive.size;
+}
+
+function transformToCss(transform?: PartialTransform3D): string {
+  const next = normalizeTransform(transform);
+  const { position, rotation, scale } = next;
+  return [
+    `translate3d(${position.x}px, ${position.y}px, ${position.z}px)`,
+    `rotateX(${rotation.x}deg)`,
+    `rotateY(${rotation.y}deg)`,
+    `rotateZ(${rotation.z}deg)`,
+    `scale3d(${scale.x}, ${scale.y}, ${scale.z})`,
+  ].join(' ');
+}
+
+function materialKey(material?: Material): string {
+  return material ? materialToCss(material) ?? '' : '';
+}
+
+function materialMapKey(materials?: FaceMaterials): string {
   if (!materials) return '';
   return Object.entries(materials)
     .map(([direction, material]) => `${direction}:${material ? materialToCss(material) : ''}`)
     .join('|');
+}
+
+function contentForNode(content?: React.ReactNode | Partial<Record<FaceDirection, React.ReactNode>>): Partial<Record<FaceDirection, React.ReactNode>> | undefined {
+  if (content == null || React.isValidElement(content) || typeof content === 'string' || typeof content === 'number') {
+    return content == null ? undefined : { front: content };
+  }
+  return content as Partial<Record<FaceDirection, React.ReactNode>>;
 }

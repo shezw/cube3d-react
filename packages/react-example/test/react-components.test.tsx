@@ -18,7 +18,7 @@ describe('React pseudo 3D scene', () => {
     );
 
     expect(html).toContain('data-cube3d-plane="true"');
-    expect(html.match(/data-cube3d-face=/g)).toHaveLength(6);
+    expect(html.match(/data-cube3d-face=/g)).toHaveLength(16);
     expect(html).toContain('prop');
     expect(html.match(/ART/g)).toHaveLength(8);
   });
@@ -34,6 +34,8 @@ describe('React pseudo 3D scene', () => {
     );
 
     expect(html).toContain('data-scene-object="character"');
+    expect(html.match(/data-cube3d-model="character"/g)).toHaveLength(1);
+    expect(html.match(/data-cube3d-model="controller"/g)).toHaveLength(1);
     expect(html).toContain('cube3d-character-idle');
     expect(html.match(/data-cube3d-face=/g)?.length).toBeGreaterThan(70);
   });
