@@ -121,9 +121,11 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   if (demo.id === 'primitive-lab') {
     await expectFaceBackgroundNotTransparent(page, 'primitive-lab/sprite');
     await expectFaceBackgroundNotTransparent(page, 'primitive-lab/extrude');
+    await expectReferenceTextModes(page, [], ['primitive-lab/extrude']);
   }
   if (demo.id === 'text-extrude') {
     assertTextExtrudeSpec(demo);
+    await expectReferenceTextModes(page, ['text-extrude/cubeText', 'text-extrude/htmlText']);
     await expectExtrudeText(page, 'text-extrude/cubeText', 'CUBE3D', 9);
     await expectExtrudeText(page, 'text-extrude/htmlText', 'HTML', 6);
     await expect(page.locator('[data-cube3d-path="text-extrude/caption"]')).toContainText('live text');
@@ -133,6 +135,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   }
   if (demo.id === 'cover-scene') {
     await expectFaceBackgroundNotTransparent(page, 'cover-scene/character/controller/cord');
+    await expectReferenceTextModes(page, ['cover-scene/visualWord', 'cover-scene/cubeWord']);
     await expectFaceBackgroundTransparent(page, 'cover-scene/visualWord');
     await expectFaceBackgroundTransparent(page, 'cover-scene/cubeWord');
   }
@@ -195,6 +198,28 @@ async function expectExtrudeText(page: Page, path: string, text: string, layers:
     await expect(node.locator(`[data-cube3d-layer-index="${index}"]`)).toHaveCount(1);
   }
   await expectFaceBackgroundTransparent(page, path);
+  await expectTextExtrudeLayerColors(page, path, layers);
+}
+
+async function expectTextExtrudeLayerColors(page: Page, path: string, layers: number) {
+  const dark = 'rgb(185, 87, 123)';
+  const bright = 'rgb(240, 122, 162)';
+  const node = page.locator(`[data-cube3d-path="${path}"]`);
+  for (let index = 0; index < layers; index += 1) {
+    const color = await node.locator(`[data-cube3d-layer-index="${index}"]`).evaluate((element) => getComputedStyle(element).color);
+    const expected = index === layers - 1 ? bright : dark;
+    expect(color, `${path} layer ${index} text color`).toBe(expected);
+  }
+}
+
+async function expectReferenceTextModes(page: Page, expectedPaths: string[], forbiddenPaths: string[] = []) {
+  const textModes = await page.locator('[data-reference-canvas]').evaluate((element) => JSON.parse((element as HTMLElement).dataset.referenceTextModes ?? '[]') as string[]);
+  for (const expectedPath of expectedPaths) {
+    expect(textModes, `${expectedPath} should use true WebGL text reference geometry`).toContain(expectedPath);
+  }
+  for (const forbiddenPath of forbiddenPaths) {
+    expect(textModes, `${forbiddenPath} should remain primitive extrude reference geometry`).not.toContain(forbiddenPath);
+  }
 }
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {

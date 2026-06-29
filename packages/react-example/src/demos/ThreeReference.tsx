@@ -14,6 +14,14 @@ import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 import type { DesignNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';
 
+type TextGeometryCtor = new (text: string, parameters: Record<string, unknown>) => THREE.BufferGeometry;
+type TextReferenceRuntime = {
+  TextGeometry: TextGeometryCtor;
+  font: unknown;
+};
+
+let textReferenceRuntimePromise: Promise<TextReferenceRuntime> | undefined;
+
 export function ThreeReference({ spec }: { spec: DemoSpec }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -21,40 +29,55 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     const host = hostRef.current;
     if (!host) return undefined;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(1);
-    renderer.setSize(stageSize.width, stageSize.height);
-    renderer.setClearColor(0x20232f, 1);
-    renderer.domElement.dataset.designSpec = spec.id;
-    host.replaceChildren(renderer.domElement);
+    let disposed = false;
+    let renderer: THREE.WebGLRenderer | undefined;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(0, stageSize.width, 0, stageSize.height, -2000, 2000);
-    camera.position.set(0, 0, 1000);
-    camera.lookAt(0, 0, 0);
+    async function renderReference() {
+      const textRuntime = hasTextExtrude(spec.root) ? await loadTextReferenceRuntime() : undefined;
+      if (disposed) return;
 
-    const root = createSceneFromSpec(spec);
-    const designNodes = new Map(flattenDesignNodes(spec.root).map(({ path, node }) => [path, node]));
-    const rootPivot = new THREE.Group();
-    rootPivot.matrixAutoUpdate = false;
-    rootPivot.matrix.copy(cssMatrix(
-      { position: { x: 178, y: 86, z: 0 }, rotation: { x: 58, y: 0, z: -34 }, scale: { x: 1, y: 1, z: 1 } },
-      { x: 150, y: 115, z: 0 },
-    ));
-    scene.add(rootPivot);
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1);
+      renderer.setSize(stageSize.width, stageSize.height);
+      renderer.setClearColor(0x20232f, 1);
+      renderer.domElement.dataset.designSpec = spec.id;
+      host.replaceChildren(renderer.domElement);
 
-    addSceneNode(rootPivot, root, designNodes);
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(0, stageSize.width, 0, stageSize.height, -2000, 2000);
+      camera.position.set(0, 0, 1000);
+      camera.lookAt(0, 0, 0);
 
-    renderer.render(scene, camera);
-    rootPivot.updateMatrixWorld(true);
-    host.dataset.referenceBounds = JSON.stringify(collectReferenceBounds(rootPivot, camera, renderer.domElement));
-    return () => renderer.dispose();
+      const root = createSceneFromSpec(spec);
+      const designNodes = new Map(flattenDesignNodes(spec.root).map(({ path, node }) => [path, node]));
+      const rootPivot = new THREE.Group();
+      rootPivot.matrixAutoUpdate = false;
+      rootPivot.matrix.copy(cssMatrix(
+        { position: { x: 178, y: 86, z: 0 }, rotation: { x: 58, y: 0, z: -34 }, scale: { x: 1, y: 1, z: 1 } },
+        { x: 150, y: 115, z: 0 },
+      ));
+      scene.add(rootPivot);
+
+      addSceneNode(rootPivot, root, designNodes, textRuntime);
+
+      renderer.render(scene, camera);
+      rootPivot.updateMatrixWorld(true);
+      host.dataset.referenceBounds = JSON.stringify(collectReferenceBounds(rootPivot, camera, renderer.domElement));
+      host.dataset.referenceTextModes = JSON.stringify(collectReferenceTextModes(rootPivot));
+    }
+
+    void renderReference();
+
+    return () => {
+      disposed = true;
+      renderer?.dispose();
+    };
   }, [spec]);
 
   return <div ref={hostRef} data-reference-canvas data-design-spec={spec.id} style={panelStyle} />;
 }
 
-function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<string, DesignNode>, parentPath?: string) {
+function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<string, DesignNode>, textRuntime?: TextReferenceRuntime, parentPath?: string) {
   const path = parentPath ? `${parentPath}/${node.id}` : node.id;
   const designNode = designNodes.get(path);
   const group = new THREE.Group();
@@ -72,11 +95,11 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<
   }
 
   if (node.primitive) {
-    addPrimitive(group, node.primitive, designNode?.kind === 'model' ? undefined : designNode);
+    addPrimitive(group, node.primitive, designNode?.kind === 'model' ? undefined : designNode, textRuntime);
   }
 
   for (const child of node.children ?? []) {
-    addSceneNode(group, child, designNodes, path);
+    addSceneNode(group, child, designNodes, textRuntime, path);
   }
 
   addAnchorMarkers(group, node);
@@ -199,7 +222,7 @@ function projectWorldCorners(corners3D: number[][], camera: THREE.Camera, canvas
   };
 }
 
-function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: DesignPrimitiveNode) {
+function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: DesignPrimitiveNode, textRuntime?: TextReferenceRuntime) {
   if (primitive.kind === 'box') {
     const geometry = new THREE.BoxGeometry(primitive.size.x, primitive.size.y, primitive.size.z);
     const material = materialFor(primitive.material);
@@ -211,6 +234,11 @@ function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: Des
   }
 
   if (primitive.kind === 'extrude') {
+    if (designNode?.renderMode === 'text-extrude') {
+      addTextExtrudeReference(group, primitive, designNode, textRuntime);
+      return;
+    }
+
     const faces = getPrimitiveFaces(primitive);
     for (const face of faces) {
       addPlaneFace(group, primitive, face, designNode);
@@ -219,6 +247,82 @@ function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: Des
   }
 
   addPlaneFace(group, primitive, getPrimitiveFaces(primitive)[0], designNode);
+}
+
+function addTextExtrudeReference(group: THREE.Group, primitive: Primitive, designNode: DesignPrimitiveNode, textRuntime?: TextReferenceRuntime) {
+  if (primitive.kind !== 'extrude' || !textRuntime) return;
+
+  group.userData.cube3dReferenceText = true;
+  const label = designNode.label ?? designNode.id;
+  const geometry = new textRuntime.TextGeometry(label, {
+    font: textRuntime.font,
+    size: primitive.size.y * 0.82,
+    depth: primitive.depth,
+    curveSegments: 4,
+    bevelEnabled: false,
+  });
+  fitGeometryToPrimitiveFace(geometry, primitive.size.x, primitive.size.y);
+
+  const mesh = new THREE.Mesh(geometry, [
+    materialFor({ kind: 'solid', rgba: [240, 122, 162, 1] }),
+    materialFor({ kind: 'solid', rgba: [185, 87, 123, 1] }),
+  ]);
+  mesh.userData.primitiveKind = primitive.kind;
+  mesh.userData.cube3dReferenceText = true;
+  group.add(mesh);
+  addEdges(mesh, geometry);
+}
+
+function fitGeometryToPrimitiveFace(geometry: THREE.BufferGeometry, maxWidth: number, maxHeight: number) {
+  geometry.computeBoundingBox();
+  const initialBounds = geometry.boundingBox;
+  if (!initialBounds) return;
+
+  const initialWidth = Math.max(1, initialBounds.max.x - initialBounds.min.x);
+  const initialHeight = Math.max(1, initialBounds.max.y - initialBounds.min.y);
+  const fitScale = Math.min(1, maxWidth / initialWidth, maxHeight / initialHeight);
+  geometry.scale(fitScale, fitScale, 1);
+
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (!bounds) return;
+  const width = bounds.max.x - bounds.min.x;
+  const height = bounds.max.y - bounds.min.y;
+  geometry.translate((maxWidth - width) / 2 - bounds.min.x, (maxHeight - height) / 2 - bounds.min.y, 0);
+}
+
+function collectReferenceTextModes(root: THREE.Object3D) {
+  const paths: string[] = [];
+  root.traverse((object) => {
+    const path = object.userData.cube3dPath as string | undefined;
+    if (path && object.userData.cube3dReferenceText === true) {
+      paths.push(path);
+    }
+  });
+  return paths.sort();
+}
+
+function hasTextExtrude(node: DesignNode): boolean {
+  if (node.kind === 'extrude' && node.renderMode === 'text-extrude') return true;
+  if (node.kind === 'model') {
+    return node.children.some((child) => hasTextExtrude(child));
+  }
+  return false;
+}
+
+function loadTextReferenceRuntime() {
+  textReferenceRuntimePromise ??= Promise.all([
+    import('three/examples/jsm/geometries/TextGeometry.js'),
+    import('three/examples/jsm/loaders/FontLoader.js'),
+    import('../assets/fonts/helvetiker_bold.typeface.json'),
+  ]).then(([geometryModule, loaderModule, fontModule]) => {
+    const FontLoaderCtor = loaderModule.FontLoader as new () => { parse: (json: unknown) => unknown };
+    return {
+      TextGeometry: geometryModule.TextGeometry as TextGeometryCtor,
+      font: new FontLoaderCtor().parse(fontModule.default),
+    };
+  });
+  return textReferenceRuntimePromise;
 }
 
 function addReferenceShape(group: THREE.Group, shape: WebGLReferenceShape) {

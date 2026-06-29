@@ -111,9 +111,17 @@ function nodeFaceStyle(
 
   if (node.primitive?.kind === 'extrude') {
     const isTextExtrude = designNode?.kind !== 'model' && designNode?.renderMode === 'text-extrude';
+    const topLayerIndex = node.primitive.layers - 1;
+    const textLayerColor = isTextExtrude
+      ? index === topLayerIndex
+        ? '#f07aa2'
+        : '#b9577b'
+      : index === 0
+        ? '#b9577b'
+        : '#f07aa2';
     return {
       ...(isTextExtrude ? { background: 'transparent' } : undefined),
-      color: index === 0 ? '#b9577b' : '#f07aa2',
+      color: textLayerColor,
       fontSize: node.id === 'visualWord' || node.id === 'cubeWord' || node.id === 'cubeText' ? 25 : 30,
       fontWeight: 900,
       fontFamily: 'Arial Black, Impact, sans-serif',
