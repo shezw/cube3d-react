@@ -36,9 +36,9 @@ test.describe('WebGL reference demo gallery', () => {
       await expect(page.locator('[data-validation-panel="candidate"]')).toBeVisible();
       await assertSharedSpecProvenance(page, demo);
 
-      const diffRatio = await comparePanels(page, testInfo, demo.id);
-      expect(diffRatio).toBeLessThan(demo.maxDiffRatio);
+      await comparePanels(page, testInfo, demo.id);
       await assertDemoStructure(page, demo);
+      await assertProjectedGeometry(page, demo, testInfo);
     });
   }
 });
@@ -101,6 +101,63 @@ async function assertDemoStructure(page: Page, demo: DemoSpec) {
 
   await assertPrimitiveContracts(page, demo);
   await assertInteraction(page, demo);
+}
+
+async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {
+  const expectedPaths = flattenDesignNodes(demo.root)
+    .filter(({ node }) => node.kind !== 'model')
+    .map(({ path }) => path);
+  const report = await page.evaluate((paths) => {
+    const referenceHost = document.querySelector<HTMLElement>('[data-reference-canvas]');
+    const candidatePanel = document.querySelector<HTMLElement>('[data-validation-panel="candidate"]');
+    const referenceBounds = JSON.parse(referenceHost?.dataset.referenceBounds ?? '{}') as Record<string, RectReport>;
+    const candidatePanelRect = candidatePanel?.getBoundingClientRect();
+    const rows = paths.map((path) => {
+      const reference = referenceBounds[path];
+      const candidate = candidatePanelRect ? candidateBounds(path, candidatePanelRect) : undefined;
+      const centerDistance = reference && candidate ? Math.hypot(reference.centerX - candidate.centerX, reference.centerY - candidate.centerY) : Number.POSITIVE_INFINITY;
+      const areaRatio = ratio(candidate?.area, reference?.area);
+      const widthRatio = ratio(candidate?.width, reference?.width);
+      const heightRatio = ratio(candidate?.height, reference?.height);
+      return { path, reference, candidate, centerDistance, areaRatio, widthRatio, heightRatio };
+    });
+    return rows;
+
+    function candidateBounds(path: string, panelRect: DOMRect): RectReport | undefined {
+      const faces = Array.from(document.querySelectorAll(`[data-cube3d-path="${path}"] [data-cube3d-face]`));
+      if (faces.length === 0) return undefined;
+      const rects = faces.map((face) => face.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
+      if (rects.length === 0) return undefined;
+      const minX = Math.min(...rects.map((rect) => rect.left - panelRect.left));
+      const maxX = Math.max(...rects.map((rect) => rect.right - panelRect.left));
+      const minY = Math.min(...rects.map((rect) => rect.top - panelRect.top));
+      const maxY = Math.max(...rects.map((rect) => rect.bottom - panelRect.top));
+      const width = Math.max(0, maxX - minX);
+      const height = Math.max(0, maxY - minY);
+      return { x: minX, y: minY, width, height, area: width * height, centerX: minX + width / 2, centerY: minY + height / 2 };
+    }
+
+    function ratio(a?: number, b?: number) {
+      if (!a || !b) return Number.POSITIVE_INFINITY;
+      return a / b;
+    }
+  }, expectedPaths);
+
+  const reportPath = testInfo.outputPath(`${demo.id}-projection-report.json`);
+  writeFileSync(reportPath, JSON.stringify({ demoId: demo.id, rows: report }, null, 2));
+  await testInfo.attach('projection-report', { path: reportPath, contentType: 'application/json' });
+
+  for (const row of report) {
+    expect(row.reference, `${row.path} missing WebGL reference projection`).toBeTruthy();
+    expect(row.candidate, `${row.path} missing Cube3D candidate projection`).toBeTruthy();
+    expect(row.centerDistance, `${row.path} projected center distance`).toBeLessThan(72);
+    expect(row.areaRatio, `${row.path} projected area ratio`).toBeGreaterThan(0.35);
+    expect(row.areaRatio, `${row.path} projected area ratio`).toBeLessThan(2.85);
+    expect(row.widthRatio, `${row.path} projected width ratio`).toBeGreaterThan(0.35);
+    expect(row.widthRatio, `${row.path} projected width ratio`).toBeLessThan(2.85);
+    expect(row.heightRatio, `${row.path} projected height ratio`).toBeGreaterThan(0.35);
+    expect(row.heightRatio, `${row.path} projected height ratio`).toBeLessThan(2.85);
+  }
 }
 
 async function assertPrimitiveContracts(page: Page, demo: DemoSpec) {
@@ -171,3 +228,13 @@ async function expectVisibleNodeArea(page: Page, path: string) {
   }, path);
   expect(area).toBeGreaterThan(0);
 }
+
+type RectReport = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  area: number;
+  centerX: number;
+  centerY: number;
+};

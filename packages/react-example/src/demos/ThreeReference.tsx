@@ -9,7 +9,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
+import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
 import { createSceneFromSpec } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 
@@ -28,31 +28,38 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     host.replaceChildren(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-210, 210, 145, -145, 1, 1000);
-    camera.position.set(260, 230, 340);
+    const camera = new THREE.OrthographicCamera(0, stageSize.width, 0, stageSize.height, -2000, 2000);
+    camera.position.set(0, 0, 1000);
     camera.lookAt(0, 0, 0);
 
-    addGrid(scene);
-
     const root = createSceneFromSpec(spec);
-    const rootGroup = new THREE.Group();
-    rootGroup.position.set(-150, 0, -100);
-    scene.add(rootGroup);
-    addSceneNode(rootGroup, root);
+    const rootPivot = new THREE.Group();
+    rootPivot.matrixAutoUpdate = false;
+    rootPivot.matrix.copy(cssMatrix(
+      { position: { x: 178, y: 86, z: 0 }, rotation: { x: 58, y: 0, z: -34 }, scale: { x: 1, y: 1, z: 1 } },
+      { x: 150, y: 115, z: 0 },
+    ));
+    scene.add(rootPivot);
+
+    addSceneNode(rootPivot, root);
 
     renderer.render(scene, camera);
+    rootPivot.updateMatrixWorld(true);
+    host.dataset.referenceBounds = JSON.stringify(collectReferenceBounds(rootPivot, camera, renderer.domElement));
     return () => renderer.dispose();
   }, [spec]);
 
   return <div ref={hostRef} data-reference-canvas data-design-spec={spec.id} style={panelStyle} />;
 }
 
-function addSceneNode(parent: THREE.Object3D, node: SceneNode) {
+function addSceneNode(parent: THREE.Object3D, node: SceneNode, parentPath?: string) {
+  const path = parentPath ? `${parentPath}/${node.id}` : node.id;
   const group = new THREE.Group();
   group.name = node.id;
-  group.position.set(node.transform.position.x, node.transform.position.z, node.transform.position.y);
-  group.rotation.set(degrees(node.transform.rotation.x), degrees(node.transform.rotation.z), degrees(node.transform.rotation.y));
-  group.scale.set(node.transform.scale.x, node.transform.scale.y, node.transform.scale.z);
+  group.userData.cube3dPath = path;
+  group.userData.cube3dPrimitive = node.primitive;
+  group.matrixAutoUpdate = false;
+  group.matrix.copy(cssMatrix(node.transform, primitiveOrigin(node)));
   parent.add(group);
 
   if (node.primitive) {
@@ -60,18 +67,66 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode) {
   }
 
   for (const child of node.children ?? []) {
-    addSceneNode(group, child);
+    addSceneNode(group, child, path);
   }
 
   addAnchorMarkers(group, node);
 }
 
+function collectReferenceBounds(root: THREE.Object3D, camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  const bounds: Record<string, { x: number; y: number; width: number; height: number; area: number; centerX: number; centerY: number }> = {};
+  root.traverse((object) => {
+    const path = object.userData.cube3dPath as string | undefined;
+    const primitive = object.userData.cube3dPrimitive as Primitive | undefined;
+    if (!path || !primitive) return;
+
+    const projected = projectPrimitiveBounds(object, primitive, camera, canvas);
+    bounds[path] = projected;
+  });
+  return bounds;
+}
+
+function projectPrimitiveBounds(object: THREE.Object3D, primitive: Primitive, camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  const bounds = getPrimitiveBounds(primitive);
+  const corners = [
+    [bounds.min.x, bounds.min.y, bounds.min.z],
+    [bounds.max.x, bounds.min.y, bounds.min.z],
+    [bounds.min.x, bounds.max.y, bounds.min.z],
+    [bounds.max.x, bounds.max.y, bounds.min.z],
+    [bounds.min.x, bounds.min.y, bounds.max.z],
+    [bounds.max.x, bounds.min.y, bounds.max.z],
+    [bounds.min.x, bounds.max.y, bounds.max.z],
+    [bounds.max.x, bounds.max.y, bounds.max.z],
+  ].map(([x, y, z]) => {
+    const point = new THREE.Vector3(x, y, z).applyMatrix4(object.matrixWorld).project(camera);
+    return {
+      x: ((point.x + 1) / 2) * canvas.width,
+      y: ((-point.y + 1) / 2) * canvas.height,
+    };
+  });
+  const minX = Math.min(...corners.map((point) => point.x));
+  const maxX = Math.max(...corners.map((point) => point.x));
+  const minY = Math.min(...corners.map((point) => point.y));
+  const maxY = Math.max(...corners.map((point) => point.y));
+  const width = Math.max(0, maxX - minX);
+  const height = Math.max(0, maxY - minY);
+  return {
+    x: minX,
+    y: minY,
+    width,
+    height,
+    area: width * height,
+    centerX: minX + width / 2,
+    centerY: minY + height / 2,
+  };
+}
+
 function addPrimitive(group: THREE.Group, primitive: Primitive) {
   if (primitive.kind === 'box') {
-    const geometry = new THREE.BoxGeometry(primitive.size.x, primitive.size.z, primitive.size.y);
+    const geometry = new THREE.BoxGeometry(primitive.size.x, primitive.size.y, primitive.size.z);
     const material = materialFor(primitive.material);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(primitive.size.x / 2, primitive.size.z / 2, primitive.size.y / 2);
+    mesh.position.set(primitive.size.x / 2, primitive.size.y / 2, primitive.size.z / 2);
     group.add(mesh);
     addEdges(mesh, geometry);
     return;
@@ -92,25 +147,36 @@ function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescri
   const geometry = new THREE.PlaneGeometry(face.size.x, face.size.y);
   const material = materialFor(face.material);
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(face.size.x / 2 + face.transform.position.x, face.transform.position.z, face.size.y / 2 + face.transform.position.y);
-  mesh.rotation.set(-Math.PI / 2 + degrees(face.transform.rotation.x), degrees(face.transform.rotation.z), degrees(face.transform.rotation.y));
-  if (primitive.kind === 'extrude') {
-    mesh.position.set(face.size.x / 2, face.transform.position.z, face.size.y / 2);
-  }
+  mesh.position.set(face.transform.position.x, face.transform.position.y, face.transform.position.z);
+  mesh.rotation.set(degrees(face.transform.rotation.x), degrees(face.transform.rotation.y), degrees(face.transform.rotation.z));
+  mesh.userData.primitiveKind = primitive.kind;
   group.add(mesh);
+}
+
+function cssMatrix(transform: SceneNode['transform'], origin: { x: number; y: number; z: number }) {
+  const matrix = new THREE.Matrix4();
+  const toOrigin = new THREE.Matrix4().makeTranslation(origin.x, origin.y, origin.z);
+  const fromOrigin = new THREE.Matrix4().makeTranslation(-origin.x, -origin.y, -origin.z);
+  const translate = new THREE.Matrix4().makeTranslation(transform.position.x, transform.position.y, transform.position.z);
+  const rotateX = new THREE.Matrix4().makeRotationX(degrees(transform.rotation.x));
+  const rotateY = new THREE.Matrix4().makeRotationY(degrees(transform.rotation.y));
+  const rotateZ = new THREE.Matrix4().makeRotationZ(degrees(transform.rotation.z));
+  const scale = new THREE.Matrix4().makeScale(transform.scale.x, transform.scale.y, transform.scale.z);
+  return matrix.multiply(toOrigin).multiply(translate).multiply(rotateX).multiply(rotateY).multiply(rotateZ).multiply(scale).multiply(fromOrigin);
+}
+
+function primitiveOrigin(node: SceneNode) {
+  if (!node.primitive) return { x: 0, y: 0, z: 0 };
+  if (node.primitive.kind === 'box') {
+    return { x: node.primitive.size.x / 2, y: node.primitive.size.y / 2, z: 0 };
+  }
+  return { x: node.primitive.size.x / 2, y: node.primitive.size.y / 2, z: 0 };
 }
 
 function addEdges(mesh: THREE.Mesh, geometry: THREE.BufferGeometry) {
   const edges = new THREE.EdgesGeometry(geometry);
   const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 }));
   mesh.add(lines);
-}
-
-function addGrid(scene: THREE.Scene) {
-  const grid = new THREE.GridHelper(280, 14, 0x5360b8, 0x33394f);
-  grid.rotation.x = Math.PI / 2;
-  grid.position.z = -2;
-  scene.add(grid);
 }
 
 function addAnchorMarkers(group: THREE.Group, node: SceneNode) {
@@ -120,7 +186,7 @@ function addAnchorMarkers(group: THREE.Group, node: SceneNode) {
   const material = new THREE.MeshBasicMaterial({ color: 0x6af08b });
   for (const anchor of anchors) {
     const marker = new THREE.Mesh(new THREE.SphereGeometry(2.5, 8, 8), material);
-    marker.position.set(anchor.position.x, anchor.position.z, anchor.position.y);
+    marker.position.set(anchor.position.x, anchor.position.y, anchor.position.z);
     group.add(marker);
   }
 }

@@ -25,7 +25,7 @@ export function CubeCandidate({ spec }: { spec: DemoSpec }) {
       data-design-node-count={designNodeCount}
       style={candidateShellStyle}
     >
-      <Scene3D perspective={780} origin="50% 45%" style={{ width: stageSize.width, height: stageSize.height }}>
+      <Scene3D perspective={100000} origin="50% 50%" style={{ width: stageSize.width, height: stageSize.height }}>
         <Space3D position={{ x: 178, y: 86, z: 0 }} rotation={{ x: 58, z: -34 }} size={{ x: 300, y: 230, z: 180 }}>
           <CandidateContent spec={spec} model={model} />
         </Space3D>

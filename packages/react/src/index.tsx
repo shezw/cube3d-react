@@ -454,8 +454,8 @@ function renderPrimitiveFaces(
         className={faceClassName}
         style={{
           position: 'absolute',
-          left: isExtrude ? 0 : '50%',
-          top: isExtrude ? 0 : '50%',
+          left: 0,
+          top: 0,
           width: face.size.x === 0 ? undefined : `${face.size.x}px`,
           height: face.size.y === 0 ? undefined : `${face.size.y}px`,
           boxSizing: 'border-box',
@@ -466,7 +466,7 @@ function renderPrimitiveFaces(
           backgroundSize: 'cover',
           transformStyle: 'preserve-3d',
           backfaceVisibility: 'visible',
-          transform: `${isExtrude ? '' : 'translate(-50%, -50%) '}${transformToCss(face.transform)}`,
+          transform: `translate(-50%, -50%) ${transformToCss(face.transform)}`,
           ...(typeof faceStyle === 'function' ? faceStyle(face, index) : faceStyle),
         }}
       >

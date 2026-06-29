@@ -552,7 +552,7 @@ export function getPrimitiveFaces(primitive: Primitive): FaceDescriptor[] {
     return [{
       direction: 'front',
       size: primitive.size,
-      transform: normalizeTransform(),
+      transform: normalizeTransform({ position: { x: primitive.size.x / 2, y: primitive.size.y / 2, z: 0 } }),
       material: primitive.material,
       shade: 0,
     }];
@@ -560,7 +560,13 @@ export function getPrimitiveFaces(primitive: Primitive): FaceDescriptor[] {
   return Array.from({ length: Math.max(1, primitive.layers) }, (_, index) => ({
     direction: 'front' as const,
     size: primitive.size,
-    transform: normalizeTransform({ position: { z: primitive.layers <= 1 ? 0 : (primitive.depth / (primitive.layers - 1)) * index } }),
+    transform: normalizeTransform({
+      position: {
+        x: primitive.size.x / 2,
+        y: primitive.size.y / 2,
+        z: primitive.layers <= 1 ? 0 : (primitive.depth / (primitive.layers - 1)) * index,
+      },
+    }),
     material: primitive.material,
     shade: 0,
   }));

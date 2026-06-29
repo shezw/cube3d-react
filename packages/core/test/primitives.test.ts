@@ -39,7 +39,7 @@ describe('@cube3d/core primitives', () => {
       expect.objectContaining({
         direction: 'front',
         size: { x: 30, y: 40 },
-        transform: expect.objectContaining({ position: { x: 0, y: 0, z: 0 } }),
+        transform: expect.objectContaining({ position: { x: 15, y: 20, z: 0 } }),
       }),
     ]);
   });
@@ -59,13 +59,22 @@ describe('@cube3d/core primitives', () => {
 
   it('describes sprite and extrude descriptors', () => {
     expect(getPrimitiveFaces(spritePrimitive({ size: { x: 18, y: 24 } }))).toEqual([
-      expect.objectContaining({ direction: 'front', size: { x: 18, y: 24 } }),
+      expect.objectContaining({
+        direction: 'front',
+        size: { x: 18, y: 24 },
+        transform: expect.objectContaining({ position: { x: 9, y: 12, z: 0 } }),
+      }),
     ]);
 
     expect(getPrimitiveBounds(extrudePrimitive({ size: { x: 12, y: 8 }, depth: 9, layers: 4 }))).toEqual({
       min: { x: 0, y: 0, z: 0 },
       max: { x: 12, y: 8, z: 9 },
     });
-    expect(getPrimitiveFaces(extrudePrimitive({ size: { x: 12, y: 8 }, depth: 9, layers: 4 })).map((face) => face.transform.position.z)).toEqual([0, 3, 6, 9]);
+    expect(getPrimitiveFaces(extrudePrimitive({ size: { x: 12, y: 8 }, depth: 9, layers: 4 })).map((face) => face.transform.position)).toEqual([
+      { x: 6, y: 4, z: 0 },
+      { x: 6, y: 4, z: 3 },
+      { x: 6, y: 4, z: 6 },
+      { x: 6, y: 4, z: 9 },
+    ]);
   });
 });
