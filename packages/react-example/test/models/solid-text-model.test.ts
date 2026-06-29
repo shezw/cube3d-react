@@ -72,20 +72,32 @@ describe('solid text model', () => {
     const sides = flattenDesignNodes(spec!.root).filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model');
     expect(sides.length).toBeGreaterThan(12);
 
-    const horizontal = sides.find(({ node }) => node.kind !== 'model' && (node.solidTextEdge?.role === 'top' || node.solidTextEdge?.role === 'bottom'))?.node;
-    const vertical = sides.find(({ node }) => node.kind !== 'model' && (node.solidTextEdge?.role === 'left' || node.solidTextEdge?.role === 'right'))?.node;
-    expect(horizontal?.kind).toBe('plane');
-    expect(vertical?.kind).toBe('plane');
-    if (horizontal?.kind === 'model' || vertical?.kind === 'model' || !horizontal || !vertical) return;
+    const byRole = (role: 'top' | 'bottom' | 'left' | 'right') => {
+      const match = sides.find(({ node }) => node.kind !== 'model' && node.solidTextEdge?.role === role)?.node;
+      expect(match?.kind).toBe('plane');
+      if (!match || match.kind === 'model') throw new Error(`Missing ${role} side plane`);
+      return match;
+    };
+    const top = byRole('top');
+    const bottom = byRole('bottom');
+    const left = byRole('left');
+    const right = byRole('right');
 
-    expect(horizontal.transform?.pivot).toEqual([0, 0, 0]);
-    expect(vertical.transform?.pivot).toEqual([0, 0, 0]);
-    expect(horizontal.transform?.rotation).toEqual([90, 0, 0]);
-    expect(vertical.transform?.rotation).toEqual([0, -90, 0]);
-    expect(horizontal.size[0]).toBeCloseTo(horizontal.solidTextEdge!.length, 3);
-    expect(horizontal.size[1]).toBe(18);
-    expect(vertical.size[0]).toBe(18);
-    expect(vertical.size[1]).toBeCloseTo(vertical.solidTextEdge!.length, 3);
+    for (const side of [top, bottom, left, right]) {
+      expect(side.transform?.pivot).toEqual([0, 0, 0]);
+    }
+    expect(top.transform?.rotation).toEqual([90, 0, 0]);
+    expect(top.transform?.position?.[2]).toBe(0);
+    expect(bottom.transform?.rotation).toEqual([-90, 0, 0]);
+    expect(bottom.transform?.position?.[2]).toBe(18);
+    expect(left.transform?.rotation).toEqual([0, -90, 0]);
+    expect(left.transform?.position?.[2]).toBe(0);
+    expect(right.transform?.rotation).toEqual([0, 90, 0]);
+    expect(right.transform?.position?.[2]).toBe(18);
+    expect(top.size[0]).toBeCloseTo(top.solidTextEdge!.length, 3);
+    expect(bottom.size[0]).toBeCloseTo(bottom.solidTextEdge!.length, 3);
+    expect(left.size[1]).toBeCloseTo(left.solidTextEdge!.length, 3);
+    expect(right.size[1]).toBeCloseTo(right.solidTextEdge!.length, 3);
   });
 
   it('parses glyph commands and closed contours from the actual font asset', () => {

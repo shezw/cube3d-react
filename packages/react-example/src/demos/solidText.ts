@@ -279,7 +279,8 @@ function createGlyphFaceNodes(
       const length = distance(from, to);
       if (length < 0.2) continue;
       const angle = radiansToDegrees(Math.atan2(to.y - from.y, to.x - from.x));
-      const sidePlane = sidePlaneTransform(from, to, length, depth);
+      const role = classifySideRole(from, to, contour);
+      const sidePlane = sidePlaneTransform(from, to, length, depth, role);
       nodes.push(plane(
         `side-g${glyph.glyphIndex}-c${contourIndex}-e${edgeIndex}`,
         sidePlane.size,
@@ -292,7 +293,7 @@ function createGlyphFaceNodes(
           contourIndex,
           edgeIndex,
           contour: contour.role,
-          role: classifySideRole(from, to, contour),
+          role,
           from: [round(from.x), round(from.y)],
           to: [round(to.x), round(to.y)],
           length: round(length),
@@ -461,22 +462,24 @@ function classifySideRole(from: Point, to: Point, contour: SolidTextContour): So
   return 'diagonal';
 }
 
-function sidePlaneTransform(from: Point, to: Point, length: number, depth: number) {
+function sidePlaneTransform(from: Point, to: Point, length: number, depth: number, role: SolidTextSideRole) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   if (Math.abs(dy) < 0.01) {
+    const isBottom = role === 'bottom';
     return {
       size: [length, depth] as Vec2Tuple,
-      position: [Math.min(from.x, to.x), from.y, 0] as Vec3Tuple,
-      rotation: [90, 0, 0] as Vec3Tuple,
+      position: [Math.min(from.x, to.x), from.y, isBottom ? depth : 0] as Vec3Tuple,
+      rotation: [isBottom ? -90 : 90, 0, 0] as Vec3Tuple,
       pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
   if (Math.abs(dx) < 0.01) {
+    const isRight = role === 'right';
     return {
       size: [depth, length] as Vec2Tuple,
-      position: [from.x, Math.min(from.y, to.y), 0] as Vec3Tuple,
-      rotation: [0, -90, 0] as Vec3Tuple,
+      position: [from.x, Math.min(from.y, to.y), isRight ? depth : 0] as Vec3Tuple,
+      rotation: [0, isRight ? 90 : -90, 0] as Vec3Tuple,
       pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
