@@ -21,8 +21,11 @@ describe('@cube3d/react DOM contract', () => {
     );
 
     expect(html).toContain('data-cube3d-node="anchored-box"');
+    expect(html).toContain('data-cube3d-path="anchored-box"');
     expect(html).toContain('data-cube3d-primitive="box"');
     expect(html).toContain('data-cube3d-anchor="top"');
+    expect(html).toContain('data-cube3d-anchor-path="anchored-box/top"');
+    expect(html).toContain('data-cube3d-face-index="0"');
     expect(html.match(/data-cube3d-face=/g)).toHaveLength(6);
   });
 });

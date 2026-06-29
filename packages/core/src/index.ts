@@ -180,7 +180,7 @@ export type ModelDefinition = {
 
 export type ValidationIssue = {
   path: string;
-  code: 'invalid-size' | 'missing-anchor' | 'duplicate-id' | 'empty-model' | 'missing-part';
+  code: 'invalid-size' | 'invalid-transform' | 'empty-id' | 'missing-anchor' | 'duplicate-id' | 'empty-model' | 'missing-part';
   message: string;
 };
 
@@ -653,16 +653,48 @@ export class Cube extends Node3D {
 
 function validateNode(node: SceneNode, path: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (node.id.trim() === '') {
+    issues.push({ path, code: 'empty-id', message: `Node "${path}" has an empty id.` });
+  }
+  if (!isFiniteTransform(node.transform)) {
+    issues.push({ path, code: 'invalid-transform', message: `Node "${path}" has an invalid transform.` });
+  }
   if (node.primitive) {
     const bounds = getPrimitiveBounds(node.primitive);
-    if (!Number.isFinite(bounds.max.x) || !Number.isFinite(bounds.max.y) || bounds.max.x < 0 || bounds.max.y < 0 || bounds.max.z < 0) {
+    if (
+      !Number.isFinite(bounds.max.x) ||
+      !Number.isFinite(bounds.max.y) ||
+      !Number.isFinite(bounds.max.z) ||
+      bounds.max.x < 0 ||
+      bounds.max.y < 0 ||
+      bounds.max.z < 0
+    ) {
       issues.push({ path, code: 'invalid-size', message: `Node "${path}" has an invalid primitive size.` });
     }
   }
+  const childIds = new Set<string>();
   for (const child of node.children ?? []) {
+    if (childIds.has(child.id)) {
+      issues.push({ path: `${path}.${child.id}`, code: 'duplicate-id', message: `Duplicate child node id "${child.id}".` });
+    }
+    childIds.add(child.id);
     issues.push(...validateNode(child, `${path}.${child.id}`));
   }
   return issues;
+}
+
+function isFiniteTransform(transform: Transform3D): boolean {
+  return [
+    transform.position.x,
+    transform.position.y,
+    transform.position.z,
+    transform.rotation.x,
+    transform.rotation.y,
+    transform.rotation.z,
+    transform.scale.x,
+    transform.scale.y,
+    transform.scale.z,
+  ].every(Number.isFinite);
 }
 
 function isSceneNode(value: Primitive | SceneNode): value is SceneNode {

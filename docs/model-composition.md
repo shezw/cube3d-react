@@ -52,4 +52,4 @@ Those checks still pass when the whole character is translated or scaled.
 
 ## Current Limits
 
-Attachment solving aligns anchor positions. It does not yet solve rotational constraints, IK, collision, or depth ordering.
+Attachment solving aligns anchor positions. It does not yet solve anchor rotation, IK, collision, clipping, or depth ordering. If a child has its own rotation, the resolver preserves that rotation and only computes the position needed to align the named anchor points.

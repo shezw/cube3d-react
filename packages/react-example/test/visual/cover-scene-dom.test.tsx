@@ -16,6 +16,11 @@ describe('cover scene DOM contract', () => {
     expect(html.match(/data-cube3d-model="controller"/g)).toHaveLength(1);
     expect(html.match(/data-cube3d-model="camera"/g)).toHaveLength(1);
     expect(html.match(/data-cube3d-model="island"/g)).toHaveLength(1);
+    expect(html).toContain('data-cube3d-path="cover-scene/character/body"');
+    expect(html).toContain('data-cube3d-path="cover-scene/character/head"');
+    expect(html).toContain('data-cube3d-path="cover-scene/character/controller"');
+    expect(html).toContain('data-cube3d-path="cover-scene/character/leftHand"');
+    expect(html).toContain('data-cube3d-path="cover-scene/character/rightHand"');
     expect(html.match(/data-cube3d-node="/g)?.length).toBeGreaterThan(25);
     expect(html.match(/data-cube3d-face=/g)?.length).toBeGreaterThan(110);
   });

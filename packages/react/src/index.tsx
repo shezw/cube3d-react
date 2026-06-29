@@ -109,16 +109,19 @@ export type Node3DProps = {
   nodeFaceStyle?: (node: SceneNode, face: FaceDescriptor, index: number) => React.CSSProperties | undefined;
   className?: string;
   style?: React.CSSProperties;
+  path?: string;
 };
 
-export function Node3D({ node, children, faceContent, nodeFaceContent, faceClassName, faceStyle, nodeFaceStyle, className, style }: Node3DProps) {
+export function Node3D({ node, children, faceContent, nodeFaceContent, faceClassName, faceStyle, nodeFaceStyle, className, style, path }: Node3DProps) {
   const primitive = node.primitive;
   const faces = primitive ? getPrimitiveFaces(primitive) : [];
   const resolvedFaceContent = faceContent ?? contentForNode(nodeFaceContent?.[node.id]);
+  const nodePath = path ?? node.id;
 
   return (
     <div
       data-cube3d-node={node.id}
+      data-cube3d-path={nodePath}
       data-cube3d-model={node.kind === 'model' ? node.modelName : undefined}
       data-cube3d-primitive={primitive?.kind}
       className={className}
@@ -136,6 +139,7 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
         <span
           key={id}
           data-cube3d-anchor={id}
+          data-cube3d-anchor-path={`${nodePath}/${id}`}
           style={{
             position: 'absolute',
             width: 0,
@@ -161,6 +165,7 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
         <Node3D
           key={child.id}
           node={child}
+          path={`${nodePath}/${child.id}`}
           faceClassName={faceClassName}
           faceStyle={faceStyle}
           nodeFaceContent={nodeFaceContent}
@@ -233,6 +238,7 @@ export const Group3D = forwardRef<NodeHandle, Group3DProps>(function Group3D(
     <div
       ref={elRef}
       data-cube3d-node={node.id}
+      data-cube3d-path={node.id}
       className={className}
       style={{
         position: 'absolute',
@@ -442,6 +448,8 @@ function renderPrimitiveFaces(
       <div
         key={`${face.direction}-${index}`}
         data-cube3d-face={face.direction}
+        data-cube3d-face-index={index}
+        data-cube3d-layer-index={isExtrude ? index : undefined}
         data-cube3d-plane={primitive.kind === 'plane' ? true : undefined}
         className={faceClassName}
         style={{

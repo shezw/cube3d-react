@@ -34,8 +34,10 @@ describe('@cube3d/react compatibility components', () => {
     );
 
     expect(html).toContain('data-cube3d-primitive="sprite"');
+    expect(html).toContain('data-cube3d-path="sprite"');
     expect(html).toContain('icon');
     expect(html.match(/TEXT/g)).toHaveLength(4);
+    expect(html).toContain('data-cube3d-layer-index="3"');
     expect(html).toContain('translate3d(0px, 0px, 12px)');
   });
 });

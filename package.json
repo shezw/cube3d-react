@@ -8,6 +8,11 @@
     "build": "pnpm -r run build",
     "dev": "pnpm --filter @cube3d/react-example dev",
     "lint": "pnpm -r run lint",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test",
+    "test:browser": "pnpm --filter @cube3d/react-example test:browser",
+    "test:all": "pnpm -r test -- --run && pnpm -r run build && pnpm test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
   }
 }
