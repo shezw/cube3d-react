@@ -9,16 +9,16 @@
 
 import React, { useMemo, useState } from 'react';
 import { CubeCandidate } from './CubeCandidate';
-import { demoDefinitions, getDemoDefinition } from './registry';
+import { demoDefinitions, getDemoSpec } from './registry';
 import { ThreeReference } from './ThreeReference';
 
 export function DemoGallery() {
-  const initialDemo = useMemo(() => getDemoDefinition(new URLSearchParams(window.location.search).get('demo')), []);
+  const initialDemo = useMemo(() => getDemoSpec(new URLSearchParams(window.location.search).get('demo')), []);
   const [selectedId, setSelectedId] = useState(initialDemo.id);
-  const selected = getDemoDefinition(selectedId);
+  const selected = getDemoSpec(selectedId);
 
   const handleSelectDemo = (id: string) => {
-    const next = getDemoDefinition(id);
+    const next = getDemoSpec(id);
     const url = new URL(window.location.href);
     url.searchParams.set('demo', next.id);
     window.history.replaceState(null, '', url);
@@ -63,13 +63,13 @@ export function DemoGallery() {
           <figure style={panelFrameStyle}>
             <figcaption style={captionStyle}>WebGL Reference</figcaption>
             <div data-validation-panel="reference" style={panelClipStyle}>
-              <ThreeReference demoId={selected.id} />
+              <ThreeReference spec={selected} />
             </div>
           </figure>
           <figure style={panelFrameStyle}>
             <figcaption style={captionStyle}>Cube3D Candidate</figcaption>
             <div data-validation-panel="candidate" style={panelClipStyle}>
-              <CubeCandidate demoId={selected.id} />
+              <CubeCandidate spec={selected} />
             </div>
           </figure>
         </div>

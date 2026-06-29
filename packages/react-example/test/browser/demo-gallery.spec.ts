@@ -7,25 +7,48 @@
     @email   : local
 */
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { demoDefinitions, type DemoId } from '../../src/demos/registry';
+import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
+import { flattenDesignNodes } from '../../src/demos/sceneFactory';
 
 test.describe('WebGL reference demo gallery', () => {
-  for (const demo of demoDefinitions) {
-    test(`${demo.id} matches reference and structural contract`, async ({ page }, testInfo) => {
+  test('reference and candidate renderers are guarded against per-demo hardcoded scenes', async () => {
+    const files = [
+      resolve(process.cwd(), 'src/demos/ThreeReference.tsx'),
+      resolve(process.cwd(), 'src/demos/CubeCandidate.tsx'),
+    ];
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      expect(source).not.toContain('referenceBoxes');
+      expect(source).not.toMatch(/demoId\s*===/);
+      expect(source).toContain('createSceneFromSpec');
+    }
+  });
+
+  for (const demo of demoSpecs) {
+    test(`${demo.id} matches shared-spec reference and structural contract`, async ({ page }, testInfo) => {
       await page.goto(`/?demo=${demo.id}`);
       await expect(page.locator('[data-validation-panel="reference"]')).toBeVisible();
       await expect(page.locator('[data-validation-panel="candidate"]')).toBeVisible();
+      await assertSharedSpecProvenance(page, demo);
 
       const diffRatio = await comparePanels(page, testInfo, demo.id);
       expect(diffRatio).toBeLessThan(demo.maxDiffRatio);
-      await assertDemoStructure(page, demo.id);
+      await assertDemoStructure(page, demo);
     });
   }
 });
+
+async function assertSharedSpecProvenance(page: Page, demo: DemoSpec) {
+  await expect(page.locator('[data-reference-canvas]')).toHaveAttribute('data-design-spec', demo.id);
+  await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-source', 'shared-demo-spec');
+  await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-spec', demo.id);
+  await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-node-count', String(flattenDesignNodes(demo.root).length));
+}
 
 async function comparePanels(page: Page, testInfo: TestInfo, demoId: DemoId) {
   const reference = await panelScreenshot(page.locator('[data-validation-panel="reference"]'));
@@ -37,7 +60,7 @@ async function comparePanels(page: Page, testInfo: TestInfo, demoId: DemoId) {
 
   const diff = new PNG({ width: referencePng.width, height: referencePng.height });
   const diffPixels = pixelmatch(referencePng.data, candidatePng.data, diff.data, referencePng.width, referencePng.height, {
-    threshold: 0.8,
+    threshold: 0.55,
     includeAA: false,
   });
   const diffRatio = diffPixels / (referencePng.width * referencePng.height);
@@ -62,63 +85,56 @@ async function panelScreenshot(locator: Locator) {
   return locator.screenshot({ animations: 'disabled' });
 }
 
-async function assertDemoStructure(page: Page, demoId: DemoId) {
-  if (demoId === 'primitive-lab') {
-    await expect(page.locator('[data-cube3d-path="box"] [data-cube3d-face]')).toHaveCount(6);
-    await expect(page.locator('[data-cube3d-path="plane"] [data-cube3d-face]')).toHaveCount(1);
-    await expect(page.locator('[data-cube3d-path="sprite"] [data-cube3d-face]')).toHaveCount(1);
-    await expect(page.locator('[data-cube3d-path="extrude"] [data-cube3d-layer-index]')).toHaveCount(6);
-    return;
+async function assertDemoStructure(page: Page, demo: DemoSpec) {
+  for (const path of demo.requiredPaths) {
+    await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveCount(1);
+    await expectVisibleNodeArea(page, path);
   }
 
-  if (demoId === 'transform-room') {
-    for (const path of ['transform-room/parent', 'transform-room/child-a', 'transform-room/child-b', 'transform-room/child-c']) {
-      await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveCount(1);
+  for (const [model, count] of Object.entries(demo.modelCounts ?? {})) {
+    await expect(page.locator(`[data-cube3d-model="${model}"]`)).toHaveCount(count);
+  }
+
+  for (const check of demo.anchorChecks ?? []) {
+    await expectProjectedAnchorDistance(page, check.aPath, check.aAnchor, check.bPath, check.bAnchor, check.maxDistance);
+  }
+
+  await assertPrimitiveContracts(page, demo);
+  await assertInteraction(page, demo);
+}
+
+async function assertPrimitiveContracts(page: Page, demo: DemoSpec) {
+  const nodes = flattenDesignNodes(demo.root);
+  for (const { path, node } of nodes) {
+    if (node.kind === 'model') continue;
+    if (node.kind === 'box') {
+      await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`)).toHaveCount(6);
     }
-    return;
-  }
-
-  if (demoId === 'anchor-assembly') {
-    await expect(page.locator('[data-cube3d-model="head-assembly"]')).toHaveCount(1);
-    await expectProjectedAnchorDistance(page, 'head-assembly/head', 'bottom', 'head-assembly/neck', 'top', 2);
-    await expectProjectedAnchorDistance(page, 'head-assembly/hatBrim', 'bottom', 'head-assembly/head', 'top', 2);
-    return;
-  }
-
-  if (demoId === 'nested-model') {
-    await expect(page.locator('[data-cube3d-model="controller"]')).toHaveCount(1);
-    for (const path of ['character/controller/shell', 'character/controller/stick', 'character/leftHand', 'character/rightHand']) {
-      await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveCount(1);
+    if (node.kind === 'plane' || node.kind === 'sprite') {
+      await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`)).toHaveCount(1);
     }
-    await expectProjectedAnchorDistance(page, 'character/leftHand', 'grip', 'character/controller', 'leftGrip', 2);
-    await expectProjectedAnchorDistance(page, 'character/rightHand', 'grip', 'character/controller', 'rightGrip', 2);
-    return;
-  }
-
-  if (demoId === 'object-field') {
-    for (const path of ['object-field/base', 'object-field/cubeA', 'object-field/cubeB', 'object-field/camera', 'object-field/prop']) {
-      await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveCount(1);
-      await expectVisibleFaceArea(page, path);
+    if (node.kind === 'extrude') {
+      await expect(page.locator(`[data-cube3d-path="${path}"] [data-cube3d-layer-index]`)).toHaveCount(node.layers ?? 6);
     }
-    return;
   }
+}
 
-  if (demoId === 'interaction-html') {
+async function assertInteraction(page: Page, demo: DemoSpec) {
+  if (!demo.interactionChecks) return;
+
+  if (demo.interactionChecks.includes('cube-face')) {
     await page.locator('[data-demo-action="cube-face"]').click();
     await expect(page.locator('[data-demo-debug]')).toContainText('button-box/front');
+  }
+  if (demo.interactionChecks.includes('controller-button')) {
     await page.locator('[data-demo-action="controller-button"]').hover();
     await page.locator('[data-demo-action="controller-button"]').click();
     await expect(page.locator('[data-demo-debug]')).toContainText('controller/front');
+  }
+  if (demo.interactionChecks.includes('sprite-button')) {
     await page.locator('[data-demo-action="sprite-button"]').focus();
     await expect(page.locator('[data-demo-action="sprite-button"]')).toBeFocused();
-    return;
   }
-
-  await expect(page.locator('[data-cube3d-model="character"]')).toHaveCount(1);
-  await expect(page.locator('[data-cube3d-model="controller"]')).toHaveCount(1);
-  await expect(page.locator('[data-cube3d-model="camera"]')).toHaveCount(1);
-  await expect(page.locator('[data-cube3d-model="island"]')).toHaveCount(1);
-  await expectProjectedAnchorDistance(page, 'cover-scene/character/head', 'bottom', 'cover-scene/character/neck', 'top', 2);
 }
 
 async function expectProjectedAnchorDistance(page: Page, aPath: string, aAnchor: string, bPath: string, bAnchor: string, maxDistance: number) {
@@ -141,10 +157,14 @@ async function expectProjectedAnchorDistance(page: Page, aPath: string, aAnchor:
   expect(distance).toBeLessThan(maxDistance);
 }
 
-async function expectVisibleFaceArea(page: Page, path: string) {
+async function expectVisibleNodeArea(page: Page, path: string) {
   const area = await page.evaluate((path) => {
-    const faces = Array.from(document.querySelectorAll(`[data-cube3d-path="${path}"] [data-cube3d-face]`));
-    return faces.reduce((sum, face) => {
+    const element = document.querySelector(`[data-cube3d-path="${path}"]`);
+    if (!element) return 0;
+    const ownRect = element.getBoundingClientRect();
+    const ownArea = Math.max(0, ownRect.width) * Math.max(0, ownRect.height);
+    if (ownArea > 0) return ownArea;
+    return Array.from(element.querySelectorAll('[data-cube3d-face]')).reduce((sum, face) => {
       const rect = face.getBoundingClientRect();
       return sum + Math.max(0, rect.width) * Math.max(0, rect.height);
     }, 0);

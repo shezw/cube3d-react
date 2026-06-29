@@ -19,7 +19,7 @@ Cube3D validation is layered. A passing build is only a package health check; it
 | Renderer contract tests | `pnpm --filter @cube3d/react test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, core descriptor mapping | Pixel output or final example composition |
 | Example model tests | `pnpm --filter @cube3d/react-example test -- --run` | Character/controller/cover scene models are semantic and anchor based | Browser layout, viewport scale, actual visual visibility |
 | Browser structure tests | `pnpm test:browser` | Real Chromium can render the example; model objects are visible; key projected anchors remain aligned | Pixel-perfect design matching or screenshot regression |
-| WebGL reference demos | `pnpm test:webgl-reference` | Cube3D demos remain visually close to simplified Three.js references and keep structural contracts | Production-grade visual parity with true 3D rendering |
+| WebGL reference demos | `pnpm test:webgl-reference` | Cube3D demos remain visually close to simplified Three.js references generated from the same `DemoSpec`, and keep structural contracts | Production-grade visual parity with true 3D rendering |
 | Build | `pnpm -r run build` | TypeScript, bundling, package exports, Vite production build | Runtime rendering accuracy |
 
 ## Required Gates
@@ -41,3 +41,21 @@ The browser test intentionally does not compare screenshots. It verifies structu
 - Projected anchor points remain close after CSS 3D transforms.
 
 If this test fails, prefer fixing the model or renderer over loosening thresholds.
+
+## WebGL Reference Policy
+
+The WebGL reference gallery has a stricter fixture policy than ordinary examples:
+
+- The only scene data source is `packages/react-example/src/demos/spec.ts`.
+- `packages/react-example/src/demos/sceneFactory.ts` converts that spec into core `SceneNode` objects.
+- Three.js and Cube3D renderers both consume the same generated scene graph.
+- Playwright reads the same spec for required paths, model counts, primitive face counts, layer counts, anchor checks, and interaction checks.
+- A source guard fails the browser test if the renderer files reintroduce per-demo hardcoded scene branches.
+
+This means the WebGL reference layer can expose three different classes of failure:
+
+- A shared model/spec failure, where both renderers are faithfully showing a bad design.
+- A WebGL reference projection failure, such as using the wrong axis mapping for Cube3D's height axis.
+- A Cube3D renderer/runtime failure, such as a face intercepting an HTML button click.
+
+Build success does not cover any of these cases.
