@@ -132,22 +132,25 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectFaceBackgroundNotTransparent(page, 'interaction-html/html-sprite');
   }
   if (demo.id === 'cylinder-8') {
-    assertCylinderSpecGeometry(demo);
-    await expect(page.locator('[data-cube3d-path^="cylinder-8/cylinder/side"]')).toHaveCount(8);
-    await expectCircleFace(page, 'cylinder-8/cylinder/topCircle');
-    await expectCircleFace(page, 'cylinder-8/cylinder/bottomCircle');
-    await expectFaceBackgroundNotTransparent(page, 'cylinder-8/cylinder/side0');
-    await expectTrueCylinderReference(page);
+    const cylinderPaths = ['cylinder-8/cylinder', 'cylinder-8/standingCylinder'];
+    for (const cylinderPath of cylinderPaths) {
+      assertCylinderSpecGeometry(demo, cylinderPath);
+      await expect(page.locator(`[data-cube3d-path^="${cylinderPath}/side"]`)).toHaveCount(8);
+      await expectCircleFace(page, `${cylinderPath}/topCircle`);
+      await expectCircleFace(page, `${cylinderPath}/bottomCircle`);
+      await expectFaceBackgroundNotTransparent(page, `${cylinderPath}/side0`);
+    }
+    await expectTrueCylinderReference(page, cylinderPaths);
   }
 }
 
-function assertCylinderSpecGeometry(demo: DemoSpec) {
+function assertCylinderSpecGeometry(demo: DemoSpec, cylinderPath: string) {
   const nodes = flattenDesignNodes(demo.root);
-  const cylinder = nodes.find(({ path }) => path === 'cylinder-8/cylinder')?.node;
-  const topCircle = nodes.find(({ path }) => path === 'cylinder-8/cylinder/topCircle')?.node;
-  const bottomCircle = nodes.find(({ path }) => path === 'cylinder-8/cylinder/bottomCircle')?.node;
-  const side0 = nodes.find(({ path }) => path === 'cylinder-8/cylinder/side0')?.node;
-  const sides = nodes.filter(({ path }) => /^cylinder-8\/cylinder\/side\d+$/.test(path));
+  const cylinder = nodes.find(({ path }) => path === cylinderPath)?.node;
+  const topCircle = nodes.find(({ path }) => path === `${cylinderPath}/topCircle`)?.node;
+  const bottomCircle = nodes.find(({ path }) => path === `${cylinderPath}/bottomCircle`)?.node;
+  const sides = nodes.filter(({ path }) => path.startsWith(`${cylinderPath}/side`) && /^side\d+$/.test(path.split('/').at(-1) ?? ''));
+  const side0 = sides.find(({ path }) => path.endsWith('/side0'))?.node;
 
   expect(cylinder?.kind).toBe('model');
   if (cylinder?.kind !== 'model' || topCircle?.kind === 'model' || bottomCircle?.kind === 'model' || side0?.kind === 'model') return;
@@ -228,11 +231,13 @@ async function expectCircleFace(page: Page, path: string) {
   expect(borderRadius, `${path} should render as a circular face`).toContain('50%');
 }
 
-async function expectTrueCylinderReference(page: Page) {
+async function expectTrueCylinderReference(page: Page, cylinderPaths: string[]) {
   const referencePaths = await page.locator('[data-reference-canvas]').evaluate((element) => Object.keys(JSON.parse((element as HTMLElement).dataset.referenceBounds ?? '{}')));
-  expect(referencePaths).toContain('cylinder-8/cylinder');
-  expect(referencePaths).not.toContain('cylinder-8/cylinder/side0');
-  expect(referencePaths).not.toContain('cylinder-8/cylinder/topCircle');
+  for (const cylinderPath of cylinderPaths) {
+    expect(referencePaths).toContain(cylinderPath);
+    expect(referencePaths).not.toContain(`${cylinderPath}/side0`);
+    expect(referencePaths).not.toContain(`${cylinderPath}/topCircle`);
+  }
 }
 
 async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {

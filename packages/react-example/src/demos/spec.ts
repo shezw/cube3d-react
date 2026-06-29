@@ -220,30 +220,21 @@ const islandNode: DesignModelNode = {
   ],
 };
 
-const cylinderNode: DesignModelNode = {
-  id: 'cylinder',
-  kind: 'model',
-  modelName: 'cylinder-8-panel',
-  referenceShape: {
-    kind: 'cylinder',
-    radius: 48,
-    height: 104,
-    color: cylinderBlue,
-    position: [120, 88, 72],
-    segments: 48,
-  },
-  children: [
-    plane('topCircle', [96, 96], cylinderTop, {
-      transform: { position: [72, -12, 72], rotation: [90, 0, 0] },
-      shape: 'circle',
-    }),
-    plane('bottomCircle', [96, 96], cylinderBottom, {
-      transform: { position: [72, 92, 72], rotation: [90, 0, 0] },
-      shape: 'circle',
-    }),
-    ...cylinderSidePanels(120, 88, 72, 48, 104, 8),
-  ],
-};
+const cylinderNode = createCylinder8PanelNode('cylinder', {
+  radius: 48,
+  height: 104,
+  position: [120, 88, 72],
+});
+
+const standingCylinderNode = createCylinder8PanelNode('standingCylinder', {
+  radius: 34,
+  height: 92,
+  position: [58, 84, 42],
+  transform: { position: [12, 152, 8], rotation: [90, 0, 0] },
+  color: [86, 202, 145, 1],
+  topColor: [121, 226, 173, 1],
+  bottomColor: [47, 143, 96, 1],
+});
 
 export const demoSpecs: DemoSpec[] = [
   {
@@ -275,6 +266,7 @@ export const demoSpecs: DemoSpec[] = [
       modelName: 'cylinder-8',
       children: [
         cylinderNode,
+        standingCylinderNode,
         box('scaleBlock', [34, 34, 40], [233, 120, 163, 1], { transform: { position: [226, 116, 28] } }),
       ],
     },
@@ -289,10 +281,20 @@ export const demoSpecs: DemoSpec[] = [
       'cylinder-8/cylinder/side5',
       'cylinder-8/cylinder/side6',
       'cylinder-8/cylinder/side7',
+      'cylinder-8/standingCylinder/topCircle',
+      'cylinder-8/standingCylinder/bottomCircle',
+      'cylinder-8/standingCylinder/side0',
+      'cylinder-8/standingCylinder/side1',
+      'cylinder-8/standingCylinder/side2',
+      'cylinder-8/standingCylinder/side3',
+      'cylinder-8/standingCylinder/side4',
+      'cylinder-8/standingCylinder/side5',
+      'cylinder-8/standingCylinder/side6',
+      'cylinder-8/standingCylinder/side7',
       'cylinder-8/scaleBlock',
     ],
-    projectionPaths: ['cylinder-8/cylinder', 'cylinder-8/scaleBlock'],
-    modelCounts: { 'cylinder-8': 1, 'cylinder-8-panel': 1 },
+    projectionPaths: ['cylinder-8/cylinder', 'cylinder-8/standingCylinder', 'cylinder-8/scaleBlock'],
+    modelCounts: { 'cylinder-8': 1, 'cylinder-8-panel': 2 },
   },
   {
     id: 'transform-room',
@@ -493,6 +495,48 @@ function extrude(
   return { id, kind: 'extrude', size, color, ...options };
 }
 
+function createCylinder8PanelNode(
+  id: string,
+  init: {
+    radius: number;
+    height: number;
+    position: Vec3Tuple;
+    transform?: DesignTransform;
+    color?: Rgba;
+    topColor?: Rgba;
+    bottomColor?: Rgba;
+  },
+): DesignModelNode {
+  const [axisX, axisY, axisZ] = init.position;
+  const diameter = init.radius * 2;
+  const color = init.color ?? cylinderBlue;
+  return {
+    id,
+    kind: 'model',
+    modelName: 'cylinder-8-panel',
+    transform: init.transform,
+    referenceShape: {
+      kind: 'cylinder',
+      radius: init.radius,
+      height: init.height,
+      color,
+      position: init.position,
+      segments: 48,
+    },
+    children: [
+      plane('topCircle', [diameter, diameter], init.topColor ?? cylinderTop, {
+        transform: { position: [axisX - init.radius, axisY - init.height / 2 - init.radius, axisZ], rotation: [90, 0, 0] },
+        shape: 'circle',
+      }),
+      plane('bottomCircle', [diameter, diameter], init.bottomColor ?? cylinderBottom, {
+        transform: { position: [axisX - init.radius, axisY + init.height / 2 - init.radius, axisZ], rotation: [90, 0, 0] },
+        shape: 'circle',
+      }),
+      ...cylinderSidePanels(axisX, axisY, axisZ, init.radius, init.height, 8, color),
+    ],
+  };
+}
+
 function cylinderSidePanels(
   axisX: number,
   axisY: number,
@@ -500,6 +544,7 @@ function cylinderSidePanels(
   radius: number,
   height: number,
   segments: number,
+  color: Rgba,
 ): DesignPrimitiveNode[] {
   const panelWidth = regularPolygonSideForEqualCircleArea(radius, segments);
   const apothem = regularPolygonApothem(panelWidth, segments);
@@ -509,7 +554,7 @@ function cylinderSidePanels(
     const centerX = axisX + Math.sin(radians) * apothem;
     const centerZ = axisZ + Math.cos(radians) * apothem;
     const shade = index % 2 === 0 ? 0 : -18;
-    return plane(`side${index}`, [panelWidth, height], [cylinderBlue[0] + shade, cylinderBlue[1] + shade, cylinderBlue[2] + shade, 1], {
+    return plane(`side${index}`, [panelWidth, height], [color[0] + shade, color[1] + shade, color[2] + shade, 1], {
       transform: {
         position: [roundGeometry(centerX - panelWidth / 2), roundGeometry(axisY - height / 2), roundGeometry(centerZ)],
         rotation: [0, angle, 0],
