@@ -68,7 +68,7 @@ function formatNodeTree(node: DesignNode, depth = 0): string[] {
   const line = `${prefix}${node.id} <${node.kind}${node.kind === 'model' && node.modelName ? `:${node.modelName}` : ''}>${meta}`;
   if (node.kind !== 'model') return [line];
 
-  const attachments = node.attachments?.map((item) => `${'  '.repeat(depth + 1)}@attach ${item.childId}.${item.childAnchor} -> ${item.parentId}.${item.parentAnchor}`) ?? [];
+  const attachments = node.attachments?.map((item) => `${'  '.repeat(depth + 1)}@attach${item.mode === 'position-orientation' ? ':oriented' : ''} ${item.childId}.${item.childAnchor} -> ${item.parentId}.${item.parentAnchor}`) ?? [];
   return [line, ...attachments, ...node.children.flatMap((child) => formatNodeTree(child, depth + 1))];
 }
 
@@ -141,7 +141,10 @@ function formatAttachments(attachments: DesignAttachment[], indent: number): str
   const childPad = ' '.repeat(indent + 2);
   return [
     '[',
-    ...attachments.map((item) => `${childPad}{ childId: '${escapeString(item.childId)}', childAnchor: '${escapeString(item.childAnchor)}', parentId: '${escapeString(item.parentId)}', parentAnchor: '${escapeString(item.parentAnchor)}' },`),
+    ...attachments.map((item) => {
+      const mode = item.mode ? `, mode: '${item.mode}'` : '';
+      return `${childPad}{ childId: '${escapeString(item.childId)}', childAnchor: '${escapeString(item.childAnchor)}', parentId: '${escapeString(item.parentId)}', parentAnchor: '${escapeString(item.parentAnchor)}'${mode} },`;
+    }),
     `${pad}]`,
   ].join('\n');
 }
@@ -151,7 +154,7 @@ function formatAnchorMap(anchors: DesignAnchorMap, indent: number): string {
   const childPad = ' '.repeat(indent + 2);
   return [
     '{',
-    ...Object.entries(anchors).map(([id, value]) => `${childPad}${id}: ${formatTuple(value)},`),
+    ...Object.entries(anchors).map(([id, value]) => `${childPad}${id}: ${Array.isArray(value) ? formatTuple(value) : formatValue(value, indent + 2)},`),
     `${pad}}`,
   ].join('\n');
 }

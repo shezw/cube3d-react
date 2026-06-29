@@ -10,7 +10,10 @@
 export type DemoId =
   | 'primitive-lab'
   | 'cylinder-8'
+  | 'anchor-orientation'
+  | 'pivot-origin'
   | 'transform-room'
+  | 'world-bounds'
   | 'anchor-assembly'
   | 'nested-model'
   | 'object-field'
@@ -25,9 +28,17 @@ export type DesignTransform = {
   position?: Vec3Tuple;
   rotation?: Vec3Tuple;
   scale?: Vec3Tuple;
+  pivot?: Vec3Tuple;
 };
 
-export type DesignAnchorMap = Record<string, Vec3Tuple>;
+export type DesignAnchor = Vec3Tuple | {
+  position: Vec3Tuple;
+  rotation?: Vec3Tuple;
+  normal?: Vec3Tuple;
+  tangent?: Vec3Tuple;
+};
+
+export type DesignAnchorMap = Record<string, DesignAnchor>;
 
 export type DesignMaterialMap = Partial<Record<'front' | 'back' | 'left' | 'right' | 'top' | 'bottom', Rgba>>;
 
@@ -75,6 +86,7 @@ export type DesignAttachment = {
   childAnchor: string;
   parentId: string;
   parentAnchor: string;
+  mode?: 'position' | 'position-orientation';
 };
 
 export type AnchorCheckSpec = {
@@ -295,6 +307,133 @@ export const demoSpecs: DemoSpec[] = [
     ],
     projectionPaths: ['cylinder-8/cylinder', 'cylinder-8/standingCylinder', 'cylinder-8/scaleBlock'],
     modelCounts: { 'cylinder-8': 1, 'cylinder-8-panel': 2 },
+  },
+  {
+    id: 'anchor-orientation',
+    title: 'Anchor Orientation',
+    capability: 'anchor position, normal and tangent alignment',
+    maxDiffRatio: 0.14,
+    root: {
+      id: 'anchor-orientation',
+      kind: 'model',
+      modelName: 'anchor-orientation',
+      children: [
+        box('socket', [72, 36, 24], [91, 140, 232, 1], {
+          transform: { position: [78, 118, 18], rotation: [0, 0, -18], pivot: [36, 18, 0] },
+          anchors: {
+            out: {
+              position: [72, 18, 24],
+              rotation: [0, 0, 22],
+              normal: [1, 0, 0],
+              tangent: [0, 1, 0],
+            },
+          },
+          faceColors: { top: [122, 160, 248, 1], front: [62, 93, 184, 1] },
+        }),
+        box('plug', [54, 28, 22], [240, 169, 80, 1], {
+          transform: { pivot: [27, 14, 0] },
+          anchors: {
+            in: {
+              position: [0, 14, 22],
+              rotation: [0, 0, -8],
+              normal: [1, 0, 0],
+              tangent: [0, 1, 0],
+            },
+          },
+          faceColors: { top: [255, 193, 101, 1], front: [204, 125, 52, 1] },
+        }),
+        plane('socketNormal', [46, 6], [93, 232, 170, 1], { transform: { position: [140, 107, 48], rotation: [0, 0, 4] } }),
+        plane('plugNormal', [46, 6], [93, 232, 170, 0.72], { transform: { position: [166, 120, 50], rotation: [0, 0, 4] } }),
+      ],
+      attachments: [
+        { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
+      ],
+    },
+    requiredPaths: [
+      'anchor-orientation/socket',
+      'anchor-orientation/plug',
+      'anchor-orientation/socketNormal',
+      'anchor-orientation/plugNormal',
+    ],
+    projectionPaths: ['anchor-orientation/socket', 'anchor-orientation/plug'],
+    anchorChecks: [
+      { aPath: 'anchor-orientation/socket', aAnchor: 'out', bPath: 'anchor-orientation/plug', bAnchor: 'in', maxDistance: 2 },
+    ],
+    modelCounts: { 'anchor-orientation': 1 },
+  },
+  {
+    id: 'pivot-origin',
+    title: 'Pivot Origin',
+    capability: 'explicit pivot/origin for local model rotation',
+    maxDiffRatio: 0.14,
+    root: {
+      id: 'pivot-origin',
+      kind: 'model',
+      modelName: 'pivot-origin',
+      children: [
+        box('base', [172, 36, 12], [75, 91, 150, 1], { transform: { position: [70, 146, 4] } }),
+        box('hinge', [18, 54, 38], [226, 190, 148, 1], { transform: { position: [132, 112, 16] } }),
+        box('door', [92, 48, 16], [226, 105, 135, 1], {
+          transform: { position: [132, 115, 20], rotation: [0, 0, -58], pivot: [0, 24, 0] },
+          anchors: {
+            hinge: { position: [0, 24, 8], normal: [-1, 0, 0], tangent: [0, 1, 0] },
+            handle: { position: [82, 24, 16], normal: [1, 0, 0], tangent: [0, 1, 0] },
+          },
+          faceColors: { top: [247, 133, 161, 1], front: [189, 70, 104, 1] },
+        }),
+        box('handle', [12, 12, 12], [244, 213, 98, 1], { transform: { position: [192, 68, 42] } }),
+      ],
+    },
+    requiredPaths: ['pivot-origin/base', 'pivot-origin/hinge', 'pivot-origin/door', 'pivot-origin/handle'],
+    projectionPaths: ['pivot-origin/base', 'pivot-origin/hinge', 'pivot-origin/door'],
+    modelCounts: { 'pivot-origin': 1 },
+  },
+  {
+    id: 'world-bounds',
+    title: 'World Bounds',
+    capability: 'resolved world bounds and spatial object query',
+    maxDiffRatio: 0.14,
+    root: {
+      id: 'world-bounds',
+      kind: 'model',
+      modelName: 'world-bounds',
+      children: [
+        box('floor', [244, 154, 10], [67, 80, 230, 1], { transform: { position: [42, 92, 0] } }),
+        {
+          id: 'leftStack',
+          kind: 'model',
+          modelName: 'bounds-stack',
+          transform: { position: [72, 82, 12], rotation: [0, 0, -8] },
+          children: [
+            box('base', [54, 42, 32], [70, 178, 104, 1]),
+            box('top', [34, 34, 46], [121, 226, 173, 1], { transform: { position: [12, -28, 32] } }),
+          ],
+        },
+        {
+          id: 'rightStack',
+          kind: 'model',
+          modelName: 'bounds-stack',
+          transform: { position: [178, 82, 12], rotation: [0, 0, 12], scale: [1.12, 1.12, 1.12] },
+          children: [
+            box('base', [62, 46, 36], [240, 169, 80, 1]),
+            box('top', [44, 32, 52], [246, 213, 98, 1], { transform: { position: [10, -30, 36] } }),
+          ],
+        },
+        box('marker', [24, 24, 24], [233, 120, 163, 1], { transform: { position: [254, 58, 18] } }),
+      ],
+    },
+    requiredPaths: [
+      'world-bounds/floor',
+      'world-bounds/leftStack',
+      'world-bounds/leftStack/base',
+      'world-bounds/leftStack/top',
+      'world-bounds/rightStack',
+      'world-bounds/rightStack/base',
+      'world-bounds/rightStack/top',
+      'world-bounds/marker',
+    ],
+    projectionPaths: ['world-bounds/floor', 'world-bounds/leftStack', 'world-bounds/rightStack', 'world-bounds/marker'],
+    modelCounts: { 'world-bounds': 1, 'bounds-stack': 2 },
   },
   {
     id: 'transform-room',

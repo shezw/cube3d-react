@@ -62,3 +62,15 @@ This means the WebGL reference layer can expose three different classes of failu
 - A Cube3D renderer/runtime failure, such as a face intercepting an HTML button click.
 
 Build success does not cover any of these cases.
+
+## Spatial Modeling Gates
+
+The spatial modeling demos add stricter checks for model-system behavior:
+
+| Capability | Demo | Core Proof | Browser Proof | Failure Means |
+| --- | --- | --- | --- | --- |
+| Anchor orientation | `anchor-orientation` | `anchor-orientation.test.ts` proves world `normal` and `tangent` vectors transform with node and anchor rotation, and `attachWithOrientation()` aligns both position and orientation | DOM exposes `data-cube3d-anchor-normal/tangent`; projected `socket.out` and `plug.in` anchors are within tolerance | The library can place a part but cannot prove it is facing the correct way |
+| Pivot / origin | `pivot-origin` | `pivot.test.ts` proves explicit pivot rotation keeps the pivot point fixed and updates world bounds from rotated corners | DOM exposes `data-cube3d-pivot` and a pivot marker; Chromium `transform-origin` matches the declared pivot | Visual rotation may be happening around an implicit CSS center instead of the modeled origin |
+| World bounds / spatial query | `world-bounds` | `world-query.test.ts` proves `flattenWorldNodes()`, `findWorldNode()`, and `getWorldBoundsReport()` return stable paths, finite bounds, centers, and sizes | Browser verifies all required paths exist, repeated models are counted, and core bounds cover nested objects | Objects may be visible, but the model layer cannot reliably query or reason about the scene |
+
+These checks deliberately combine semantic tests and browser tests. A screenshot that looks acceptable is not enough: the model must expose stable paths, anchors, pivots, and bounds that a real project can query.

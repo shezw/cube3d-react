@@ -10,8 +10,14 @@ describe('@cube3d/react DOM contract', () => {
       id: 'anchored-box',
       primitive: boxPrimitive({ size: { x: 20, y: 20, z: 20 } }),
       anchors: {
-        top: { id: 'top', position: { x: 10, y: 0, z: 20 } },
+        top: {
+          id: 'top',
+          position: { x: 10, y: 0, z: 20 },
+          normal: { x: 0, y: -1, z: 0 },
+          tangent: { x: 1, y: 0, z: 0 },
+        },
       },
+      transform: { pivot: { x: 0, y: 10, z: 0 } },
     });
 
     const html = renderToStaticMarkup(
@@ -25,6 +31,10 @@ describe('@cube3d/react DOM contract', () => {
     expect(html).toContain('data-cube3d-primitive="box"');
     expect(html).toContain('data-cube3d-anchor="top"');
     expect(html).toContain('data-cube3d-anchor-path="anchored-box/top"');
+    expect(html).toContain('data-cube3d-anchor-normal="0,-1,0"');
+    expect(html).toContain('data-cube3d-anchor-tangent="1,0,0"');
+    expect(html).toContain('data-cube3d-pivot="0,10,0"');
+    expect(html).toContain('data-cube3d-pivot-path="anchored-box/pivot"');
     expect(html).toContain('data-cube3d-face-index="0"');
     expect(html.match(/data-cube3d-face=/g)).toHaveLength(6);
   });

@@ -28,12 +28,14 @@ export type Transform3D = {
   position: Vec3;
   rotation: Euler;
   scale: Vec3;
+  pivot?: Vec3;
 };
 
 export type PartialTransform3D = Partial<{
   position: Partial<Vec3>;
   rotation: Partial<Euler>;
   scale: Partial<Vec3>;
+  pivot: Partial<Vec3>;
 }>;
 
 export type KeyframeTransform = Partial<{
@@ -91,6 +93,8 @@ export type Anchor = {
   id: string;
   position: Vec3;
   rotation?: Partial<Euler>;
+  normal?: Vec3;
+  tangent?: Vec3;
 };
 
 export type AnchorMap = Record<string, Anchor>;
@@ -151,6 +155,7 @@ export type ModelNode = SceneNode & { kind: 'model'; modelName: string; children
 
 export type WorldNode = {
   node: SceneNode;
+  path: string;
   worldMatrix: Mat4;
   worldBounds?: Bounds3;
   worldAnchors: AnchorMap;
@@ -168,6 +173,7 @@ export type ModelAttachment = {
   childAnchor: string;
   parentId: string;
   parentAnchor: string;
+  mode?: 'position' | 'position-orientation';
 };
 
 export type ModelDefinition = {
@@ -218,6 +224,7 @@ export function normalizeTransform(transform?: PartialTransform3D): Transform3D 
     position: vec3(transform?.position),
     rotation: vec3(transform?.rotation),
     scale: vec3(transform?.scale, UNIT_VEC3),
+    pivot: transform?.pivot ? vec3(transform.pivot) : undefined,
   };
 }
 
@@ -246,6 +253,7 @@ export function multiplyMat4(a: Mat4, b: Mat4): Mat4 {
 
 export function transformToMat4(transform?: PartialTransform3D): Mat4 {
   const { position, rotation, scale } = normalizeTransform(transform);
+  const pivot = transform?.pivot ? vec3(transform.pivot) : ZERO_VEC3;
   const rx = degToRad(rotation.x);
   const ry = degToRad(rotation.y);
   const rz = degToRad(rotation.z);
@@ -286,8 +294,20 @@ export function transformToMat4(transform?: PartialTransform3D): Mat4 {
     0, 0, 1, 0,
     0, 0, 0, 1,
   ];
+  const toPivot: Mat4 = [
+    1, 0, 0, pivot.x,
+    0, 1, 0, pivot.y,
+    0, 0, 1, pivot.z,
+    0, 0, 0, 1,
+  ];
+  const fromPivot: Mat4 = [
+    1, 0, 0, -pivot.x,
+    0, 1, 0, -pivot.y,
+    0, 0, 1, -pivot.z,
+    0, 0, 0, 1,
+  ];
 
-  return multiplyMat4(t, multiplyMat4(rzm, multiplyMat4(rym, multiplyMat4(rxm, sxm))));
+  return multiplyMat4(t, multiplyMat4(toPivot, multiplyMat4(rzm, multiplyMat4(rym, multiplyMat4(rxm, multiplyMat4(sxm, fromPivot))))));
 }
 
 export function transformPoint(matrix: Mat4, point: Vec3): Vec3 {
@@ -296,6 +316,33 @@ export function transformPoint(matrix: Mat4, point: Vec3): Vec3 {
     y: matrix[4] * point.x + matrix[5] * point.y + matrix[6] * point.z + matrix[7],
     z: matrix[8] * point.x + matrix[9] * point.y + matrix[10] * point.z + matrix[11],
   };
+}
+
+export function transformDirection(matrix: Mat4, direction: Vec3): Vec3 {
+  return normalizeVec3({
+    x: matrix[0] * direction.x + matrix[1] * direction.y + matrix[2] * direction.z,
+    y: matrix[4] * direction.x + matrix[5] * direction.y + matrix[6] * direction.z,
+    z: matrix[8] * direction.x + matrix[9] * direction.y + matrix[10] * direction.z,
+  });
+}
+
+export function dotVec3(a: Vec3, b: Vec3): number {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+export function lengthVec3(value: Vec3): number {
+  return Math.hypot(value.x, value.y, value.z);
+}
+
+export function normalizeVec3(value: Vec3): Vec3 {
+  const length = lengthVec3(value);
+  if (length === 0) return { ...ZERO_VEC3 };
+  return { x: value.x / length, y: value.y / length, z: value.z / length };
+}
+
+export function angleBetweenVec3(a: Vec3, b: Vec3): number {
+  const dot = dotVec3(normalizeVec3(a), normalizeVec3(b));
+  return radToDeg(Math.acos(Math.max(-1, Math.min(1, dot))));
 }
 
 export function createBounds(min: Vec3, max: Vec3): Bounds3 {
@@ -422,6 +469,10 @@ export function attach(childId: string, childAnchor: string, parentId: string, p
   return { childId, childAnchor, parentId, parentAnchor };
 }
 
+export function attachWithOrientation(childId: string, childAnchor: string, parentId: string, parentAnchor: string): ModelAttachment {
+  return { childId, childAnchor, parentId, parentAnchor, mode: 'position-orientation' };
+}
+
 export function defineModel(name: string, parts: ModelPart[], options: { attachments?: ModelAttachment[]; transform?: PartialTransform3D; anchors?: AnchorMap } = {}): ModelDefinition {
   return { name, parts, attachments: options.attachments, transform: options.transform, anchors: options.anchors };
 }
@@ -444,10 +495,18 @@ export function resolveModel(model: ModelDefinition, id = model.name): ModelNode
       const parentAnchor = parent.node.anchors?.[modelAttachment.parentAnchor];
       if (!childAnchor || !parentAnchor) continue;
 
-      const parentAnchorWorld = addVec3(parentTransform.position, scaleVec3(parentAnchor.position, parentTransform.scale));
-      const nextPosition = subVec3(parentAnchorWorld, scaleVec3(childAnchor.position, childTransform.scale));
-      if (!sameVec3(nextPosition, childTransform.position)) {
-        transforms.set(child.id, { ...childTransform, position: nextPosition });
+      const nextRotation = modelAttachment.mode === 'position-orientation'
+        ? addVec3(parentTransform.rotation, subVec3(vec3(parentAnchor.rotation), vec3(childAnchor.rotation)))
+        : childTransform.rotation;
+      const parentAnchorWorld = modelAttachment.mode === 'position-orientation'
+        ? transformPoint(transformToMat4(parentTransform), parentAnchor.position)
+        : addVec3(parentTransform.position, scaleVec3(parentAnchor.position, parentTransform.scale));
+      const childAnchorOffset = modelAttachment.mode === 'position-orientation'
+        ? transformPoint(transformToMat4({ ...childTransform, position: ZERO_VEC3, rotation: nextRotation }), childAnchor.position)
+        : scaleVec3(childAnchor.position, childTransform.scale);
+      const nextPosition = subVec3(parentAnchorWorld, childAnchorOffset);
+      if (!sameVec3(nextPosition, childTransform.position) || !sameVec3(nextRotation, childTransform.rotation)) {
+        transforms.set(child.id, { ...childTransform, position: nextPosition, rotation: nextRotation });
         changed = true;
       }
     }
@@ -507,30 +566,84 @@ export function validateScene(node: SceneNode): ValidationIssue[] {
   return validateNode(node, node.id);
 }
 
-export function resolveScene(node: SceneNode, parentMatrix: Mat4 = identityMat4()): WorldNode {
+export function resolveScene(node: SceneNode, parentMatrix: Mat4 = identityMat4(), parentPath?: string): WorldNode {
+  const path = parentPath ? `${parentPath}/${node.id}` : node.id;
   const localMatrix = transformToMat4(node.transform);
   const worldMatrix = multiplyMat4(parentMatrix, localMatrix);
-  const children = (node.children ?? []).map((child) => resolveScene(child, worldMatrix));
+  const children = (node.children ?? []).map((child) => resolveScene(child, worldMatrix, path));
   const localBounds = node.primitive ? getPrimitiveBounds(node.primitive) : undefined;
   const ownBounds = localBounds ? transformBounds(localBounds, worldMatrix) : undefined;
   const childBounds = children.reduce<Bounds3 | undefined>((bounds, child) => unionBounds(bounds, child.worldBounds), undefined);
 
   const worldAnchors = Object.fromEntries(
-    Object.entries(node.anchors ?? {}).map(([id, anchor]) => [
-      id,
-      {
-        ...anchor,
-        position: transformPoint(worldMatrix, anchor.position),
-      },
-    ]),
+    Object.entries(node.anchors ?? {}).map(([id, anchor]) => [id, resolveWorldAnchor(anchor, worldMatrix)]),
   );
 
   return {
     node,
+    path,
     worldMatrix,
     worldBounds: unionBounds(ownBounds, childBounds),
     worldAnchors,
     children,
+  };
+}
+
+function resolveWorldAnchor(anchor: Anchor, worldMatrix: Mat4): Anchor {
+  const anchorMatrix = anchor.rotation ? multiplyMat4(worldMatrix, transformToMat4({ rotation: anchor.rotation })) : worldMatrix;
+  return {
+    ...anchor,
+    position: transformPoint(worldMatrix, anchor.position),
+    normal: anchor.normal ? transformDirection(anchorMatrix, anchor.normal) : undefined,
+    tangent: anchor.tangent ? transformDirection(anchorMatrix, anchor.tangent) : undefined,
+  };
+}
+
+export type WorldBoundsReport = {
+  path: string;
+  nodeId: string;
+  kind: SceneNodeKind;
+  modelName?: string;
+  primitiveKind?: Primitive['kind'];
+  bounds?: Bounds3;
+  center?: Vec3;
+  size?: Vec3;
+};
+
+export function flattenWorldNodes(world: WorldNode): WorldNode[] {
+  return [world, ...world.children.flatMap(flattenWorldNodes)];
+}
+
+export function findWorldNode(world: WorldNode, path: string): WorldNode | undefined {
+  return flattenWorldNodes(world).find((candidate) => candidate.path === path);
+}
+
+export function getWorldBoundsReport(world: WorldNode): WorldBoundsReport[] {
+  return flattenWorldNodes(world).map((item) => ({
+    path: item.path,
+    nodeId: item.node.id,
+    kind: item.node.kind,
+    modelName: item.node.modelName,
+    primitiveKind: item.node.primitive?.kind,
+    bounds: item.worldBounds,
+    center: item.worldBounds ? boundsCenter(item.worldBounds) : undefined,
+    size: item.worldBounds ? boundsSize(item.worldBounds) : undefined,
+  }));
+}
+
+export function boundsCenter(bounds: Bounds3): Vec3 {
+  return {
+    x: (bounds.min.x + bounds.max.x) / 2,
+    y: (bounds.min.y + bounds.max.y) / 2,
+    z: (bounds.min.z + bounds.max.z) / 2,
+  };
+}
+
+export function boundsSize(bounds: Bounds3): Vec3 {
+  return {
+    x: bounds.max.x - bounds.min.x,
+    y: bounds.max.y - bounds.min.y,
+    z: bounds.max.z - bounds.min.z,
   };
 }
 
@@ -700,6 +813,9 @@ function isFiniteTransform(transform: Transform3D): boolean {
     transform.scale.x,
     transform.scale.y,
     transform.scale.z,
+    transform.pivot?.x ?? 0,
+    transform.pivot?.y ?? 0,
+    transform.pivot?.z ?? 0,
   ].every(Number.isFinite);
 }
 
@@ -713,6 +829,10 @@ function sameVec3(a: Vec3, b: Vec3): boolean {
 
 function degToRad(value: number): number {
   return (value / 180) * Math.PI;
+}
+
+function radToDeg(value: number): number {
+  return (value / Math.PI) * 180;
 }
 
 function clampColor(value: number): number {

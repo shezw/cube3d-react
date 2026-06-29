@@ -9,6 +9,7 @@
 
 import {
   attach,
+  attachWithOrientation,
   boxPrimitive,
   defineModel,
   extrudePrimitive,
@@ -27,7 +28,7 @@ import {
   type Size2,
   type Size3,
 } from '@cube3d/core';
-import type { DemoSpec, DesignAnchorMap, DesignModelNode, DesignNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';
+import type { DemoSpec, DesignAnchor, DesignAnchorMap, DesignModelNode, DesignNode, DesignPrimitiveNode, DesignTransform, Rgba, Vec2Tuple, Vec3Tuple } from './spec';
 
 export function createSceneFromSpec(spec: DemoSpec): SceneNode {
   return createNode(spec.root);
@@ -78,7 +79,11 @@ function createModelNode(node: DesignModelNode): SceneNode {
     {
       transform: transform(node.transform),
       anchors: anchors(node.anchors),
-      attachments: node.attachments.map((item) => attach(item.childId, item.childAnchor, item.parentId, item.parentAnchor)),
+      attachments: node.attachments.map((item) => (
+        item.mode === 'position-orientation'
+          ? attachWithOrientation(item.childId, item.childAnchor, item.parentId, item.parentAnchor)
+          : attach(item.childId, item.childAnchor, item.parentId, item.parentAnchor)
+      )),
     },
   );
   return resolveModel(model, node.id);
@@ -113,17 +118,29 @@ function transform(source?: DesignTransform): PartialTransform3D {
     position: source?.position ? { x: source.position[0], y: source.position[1], z: source.position[2] } : undefined,
     rotation: source?.rotation ? { x: source.rotation[0], y: source.rotation[1], z: source.rotation[2] } : undefined,
     scale: source?.scale ? { x: source.scale[0], y: source.scale[1], z: source.scale[2] } : undefined,
+    pivot: source?.pivot ? { x: source.pivot[0], y: source.pivot[1], z: source.pivot[2] } : undefined,
   };
 }
 
 function anchors(source?: DesignAnchorMap): AnchorMap | undefined {
   if (!source) return undefined;
   return Object.fromEntries(
-    Object.entries(source).map(([id, position]) => [
+    Object.entries(source).map(([id, value]) => [
       id,
-      { id, position: { x: position[0], y: position[1], z: position[2] } },
+      anchor(id, value),
     ]),
   );
+}
+
+function anchor(id: string, value: DesignAnchor) {
+  if (Array.isArray(value)) return { id, position: { x: value[0], y: value[1], z: value[2] } };
+  return {
+    id,
+    position: { x: value.position[0], y: value.position[1], z: value.position[2] },
+    rotation: value.rotation ? { x: value.rotation[0], y: value.rotation[1], z: value.rotation[2] } : undefined,
+    normal: value.normal ? { x: value.normal[0], y: value.normal[1], z: value.normal[2] } : undefined,
+    tangent: value.tangent ? { x: value.tangent[0], y: value.tangent[1], z: value.tangent[2] } : undefined,
+  };
 }
 
 function size2(size: Vec2Tuple | Vec3Tuple): Size2 {

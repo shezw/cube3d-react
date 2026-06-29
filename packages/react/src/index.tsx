@@ -124,22 +124,38 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
       data-cube3d-path={nodePath}
       data-cube3d-model={node.kind === 'model' ? node.modelName : undefined}
       data-cube3d-primitive={primitive?.kind}
+      data-cube3d-pivot={node.transform.pivot ? vec3ToData(node.transform.pivot) : undefined}
       className={className}
       style={{
         position: 'absolute',
         width: primitive ? `${primitiveSize(primitive).x}px` : undefined,
         height: primitive ? `${primitiveSize(primitive).y}px` : undefined,
         transformStyle: 'preserve-3d',
-        transformOrigin: '50% 50%',
+        transformOrigin: node.transform.pivot ? pivotToCss(node.transform.pivot) : '50% 50%',
         transform: transformToCss(node.transform),
         ...style,
       }}
     >
+      {node.transform.pivot ? (
+        <span
+          data-cube3d-pivot-marker
+          data-cube3d-pivot-path={`${nodePath}/pivot`}
+          style={{
+            position: 'absolute',
+            width: 0,
+            height: 0,
+            pointerEvents: 'none',
+            transform: transformToCss({ position: node.transform.pivot }),
+          }}
+        />
+      ) : null}
       {Object.entries(node.anchors ?? {}).map(([id, anchor]) => (
         <span
           key={id}
           data-cube3d-anchor={id}
           data-cube3d-anchor-path={`${nodePath}/${id}`}
+          data-cube3d-anchor-normal={anchor.normal ? vec3ToData(anchor.normal) : undefined}
+          data-cube3d-anchor-tangent={anchor.tangent ? vec3ToData(anchor.tangent) : undefined}
           style={{
             position: 'absolute',
             width: 0,
@@ -491,6 +507,14 @@ function transformToCss(transform?: PartialTransform3D): string {
     `rotateZ(${rotation.z}deg)`,
     `scale3d(${scale.x}, ${scale.y}, ${scale.z})`,
   ].join(' ');
+}
+
+function pivotToCss(pivot: Vec3): string {
+  return `${pivot.x}px ${pivot.y}px ${pivot.z}px`;
+}
+
+function vec3ToData(value: Vec3): string {
+  return `${value.x},${value.y},${value.z}`;
 }
 
 function materialKey(material?: Material): string {

@@ -94,11 +94,26 @@ function collectReferenceBounds(root: THREE.Object3D, camera: THREE.Camera, canv
       ? projectReferenceShapeBounds(object, referenceShape, camera, canvas)
       : primitive
         ? projectPrimitiveBounds(object, primitive, camera, canvas)
-        : undefined;
+        : projectObjectBounds(object, camera, canvas);
     if (!projected) return;
     bounds[path] = projected;
   });
   return bounds;
+}
+
+function projectObjectBounds(object: THREE.Object3D, camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  const box = new THREE.Box3().setFromObject(object);
+  if (box.isEmpty()) return undefined;
+  return projectWorldCorners([
+    [box.min.x, box.min.y, box.min.z],
+    [box.max.x, box.min.y, box.min.z],
+    [box.min.x, box.max.y, box.min.z],
+    [box.max.x, box.max.y, box.min.z],
+    [box.min.x, box.min.y, box.max.z],
+    [box.max.x, box.min.y, box.max.z],
+    [box.min.x, box.max.y, box.max.z],
+    [box.max.x, box.max.y, box.max.z],
+  ], camera, canvas);
 }
 
 function projectReferenceShapeBounds(object: THREE.Object3D, shape: WebGLReferenceShape, camera: THREE.Camera, canvas: HTMLCanvasElement) {
@@ -137,6 +152,31 @@ function projectPrimitiveBounds(object: THREE.Object3D, primitive: Primitive, ca
 function projectCorners(corners3D: number[][], object: THREE.Object3D, camera: THREE.Camera, canvas: HTMLCanvasElement) {
   const corners = corners3D.map(([x, y, z]) => {
     const point = new THREE.Vector3(x, y, z).applyMatrix4(object.matrixWorld).project(camera);
+    return {
+      x: ((point.x + 1) / 2) * canvas.width,
+      y: ((-point.y + 1) / 2) * canvas.height,
+    };
+  });
+  const minX = Math.min(...corners.map((point) => point.x));
+  const maxX = Math.max(...corners.map((point) => point.x));
+  const minY = Math.min(...corners.map((point) => point.y));
+  const maxY = Math.max(...corners.map((point) => point.y));
+  const width = Math.max(0, maxX - minX);
+  const height = Math.max(0, maxY - minY);
+  return {
+    x: minX,
+    y: minY,
+    width,
+    height,
+    area: width * height,
+    centerX: minX + width / 2,
+    centerY: minY + height / 2,
+  };
+}
+
+function projectWorldCorners(corners3D: number[][], camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  const corners = corners3D.map(([x, y, z]) => {
+    const point = new THREE.Vector3(x, y, z).project(camera);
     return {
       x: ((point.x + 1) / 2) * canvas.width,
       y: ((-point.y + 1) / 2) * canvas.height,
@@ -205,8 +245,9 @@ function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescri
 
 function cssMatrix(transform: SceneNode['transform'], origin: { x: number; y: number; z: number }) {
   const matrix = new THREE.Matrix4();
-  const toOrigin = new THREE.Matrix4().makeTranslation(origin.x, origin.y, origin.z);
-  const fromOrigin = new THREE.Matrix4().makeTranslation(-origin.x, -origin.y, -origin.z);
+  const pivot = transform.pivot ?? origin;
+  const toOrigin = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z);
+  const fromOrigin = new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z);
   const translate = new THREE.Matrix4().makeTranslation(transform.position.x, transform.position.y, transform.position.z);
   const rotateX = new THREE.Matrix4().makeRotationX(degrees(transform.rotation.x));
   const rotateY = new THREE.Matrix4().makeRotationY(degrees(transform.rotation.y));

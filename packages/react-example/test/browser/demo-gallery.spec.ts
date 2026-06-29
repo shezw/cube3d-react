@@ -12,8 +12,9 @@ import { resolve } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
-import { flattenDesignNodes } from '../../src/demos/sceneFactory';
+import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 
 test.describe('WebGL reference demo gallery', () => {
   test('reference and candidate renderers are guarded against per-demo hardcoded scenes', async () => {
@@ -142,6 +143,71 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     }
     await expectTrueCylinderReference(page, cylinderPaths);
   }
+  if (demo.id === 'anchor-orientation') {
+    assertAnchorOrientationSpec(demo);
+    await expect(page.locator('[data-cube3d-path="anchor-orientation/socket"] [data-cube3d-anchor="out"]')).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
+    await expect(page.locator('[data-cube3d-path="anchor-orientation/plug"] [data-cube3d-anchor="in"]')).toHaveAttribute('data-cube3d-anchor-tangent', '0,1,0');
+  }
+  if (demo.id === 'pivot-origin') {
+    assertPivotSpec(demo);
+    await expect(page.locator('[data-cube3d-path="pivot-origin/door"]')).toHaveAttribute('data-cube3d-pivot', '0,24,0');
+    await expect(page.locator('[data-cube3d-path="pivot-origin/door"] > [data-cube3d-pivot-marker]')).toHaveCount(1);
+    const transformOrigin = await page.locator('[data-cube3d-path="pivot-origin/door"]').evaluate((element) => getComputedStyle(element).transformOrigin);
+    expect(transformOrigin).toContain('0px 24px');
+  }
+  if (demo.id === 'world-bounds') {
+    assertWorldBoundsSpec(demo);
+    await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(2);
+  }
+}
+
+function assertAnchorOrientationSpec(demo: DemoSpec) {
+  const world = resolveScene(createSceneFromSpec(demo));
+  const socket = findWorldNode(world, 'anchor-orientation/socket')?.worldAnchors.out;
+  const plug = findWorldNode(world, 'anchor-orientation/plug')?.worldAnchors.in;
+  expect(socket, 'socket anchor should resolve').toBeTruthy();
+  expect(plug, 'plug anchor should resolve').toBeTruthy();
+  expect(plug!.position.x).toBeCloseTo(socket!.position.x, 3);
+  expect(plug!.position.y).toBeCloseTo(socket!.position.y, 3);
+  expect(plug!.position.z).toBeCloseTo(socket!.position.z, 3);
+  expect(angleBetweenVec3(socket!.normal!, plug!.normal!)).toBeLessThan(0.001);
+  expect(angleBetweenVec3(socket!.tangent!, plug!.tangent!)).toBeLessThan(0.001);
+}
+
+function assertPivotSpec(demo: DemoSpec) {
+  const world = resolveScene(createSceneFromSpec(demo));
+  const door = findWorldNode(world, 'pivot-origin/door');
+  const hinge = door?.worldAnchors.hinge;
+  expect(door?.node.transform.pivot).toEqual({ x: 0, y: 24, z: 0 });
+  expect(hinge?.position.x).toBeCloseTo(132, 3);
+  expect(hinge?.position.y).toBeCloseTo(139, 3);
+  expect(door?.worldBounds?.max.x).toBeGreaterThan(door?.worldBounds?.min.x ?? 0);
+  expect(door?.worldBounds?.max.y).toBeGreaterThan(door?.worldBounds?.min.y ?? 0);
+}
+
+function assertWorldBoundsSpec(demo: DemoSpec) {
+  const report = getWorldBoundsReport(resolveScene(createSceneFromSpec(demo)));
+  const byPath = new Map(report.map((item) => [item.path, item]));
+  for (const path of demo.requiredPaths) {
+    const row = byPath.get(path);
+    expect(row?.bounds, `${path} should have resolved world bounds`).toBeTruthy();
+    expectFiniteBounds(path, row!.bounds!);
+  }
+  const root = byPath.get('world-bounds');
+  const left = byPath.get('world-bounds/leftStack');
+  const right = byPath.get('world-bounds/rightStack');
+  expect(root?.size?.x).toBeGreaterThan(left?.size?.x ?? 0);
+  expect(root?.size?.x).toBeGreaterThan(right?.size?.x ?? 0);
+  expect(left?.center?.x).toBeLessThan(right?.center?.x ?? 0);
+}
+
+function expectFiniteBounds(path: string, bounds: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }) {
+  for (const value of [bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z]) {
+    expect(Number.isFinite(value), `${path} bounds should be finite`).toBe(true);
+  }
+  expect(bounds.max.x, `${path} bounds x`).toBeGreaterThanOrEqual(bounds.min.x);
+  expect(bounds.max.y, `${path} bounds y`).toBeGreaterThanOrEqual(bounds.min.y);
+  expect(bounds.max.z, `${path} bounds z`).toBeGreaterThanOrEqual(bounds.min.z);
 }
 
 function assertCylinderSpecGeometry(demo: DemoSpec, cylinderPath: string) {
