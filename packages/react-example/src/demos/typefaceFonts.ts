@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/react-example/src/demos/typefaceFonts.ts
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import pressStart2p from '../assets/fonts/solid/press-start-2p.typeface';

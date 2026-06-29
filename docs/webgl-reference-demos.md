@@ -1,7 +1,10 @@
 <!--
     Cube3D React
     docs/webgl-reference-demos.md
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 -->
 
 # WebGL Reference Demos

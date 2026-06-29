@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/react-example/src/demos/registry.ts
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import { demoSpecs, getDemoSpec, stageSize, type DemoId, type DemoSpec } from './spec';

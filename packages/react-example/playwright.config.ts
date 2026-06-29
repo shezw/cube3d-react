@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/react-example/playwright.config.ts
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import { defineConfig, devices } from '@playwright/test';

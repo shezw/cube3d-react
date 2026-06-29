@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/core/test/resolver.test.ts
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import { describe, expect, it } from 'vitest';

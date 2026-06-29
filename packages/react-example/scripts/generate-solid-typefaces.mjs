@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/react-example/scripts/generate-solid-typefaces.mjs
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

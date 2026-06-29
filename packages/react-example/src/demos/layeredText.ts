@@ -1,7 +1,10 @@
 /*
     Cube3D React
     packages/react-example/src/demos/layeredText.ts
-    Repository: https://github.com/shezw/cube3d-react
+
+    @link    : https://shezw.com
+    @author  : shezw
+    @email   : hello@shezw.com
 */
 
 import type { DesignPrimitiveNode, LayeredTextSmooth } from './spec';
