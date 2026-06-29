@@ -280,11 +280,12 @@ function createGlyphFaceNodes(
       if (length < 0.2) continue;
       const angle = radiansToDegrees(Math.atan2(to.y - from.y, to.x - from.x));
       const role = classifySideRole(from, to, contour);
-      const sidePlane = sidePlaneTransform(from, to, length, depth, role);
+      const sidePlane = sidePlaneTransform(from, to, length, depth, role, contour.role);
+      const edgeColor = edgeIndex % 2 === 0 ? sideColor : darkenRgba(sideColor, 0.78);
       nodes.push(plane(
         `side-g${glyph.glyphIndex}-c${contourIndex}-e${edgeIndex}`,
         sidePlane.size,
-        sideColor,
+        edgeColor,
         sidePlane.position,
         undefined,
         {
@@ -298,7 +299,7 @@ function createGlyphFaceNodes(
           to: [round(to.x), round(to.y)],
           length: round(length),
           angle: round(angle),
-          color: sideColor,
+          color: edgeColor,
         },
         { rotation: sidePlane.rotation, pivot: sidePlane.pivot },
       ));
@@ -462,24 +463,25 @@ function classifySideRole(from: Point, to: Point, contour: SolidTextContour): So
   return 'diagonal';
 }
 
-function sidePlaneTransform(from: Point, to: Point, length: number, depth: number, role: SolidTextSideRole) {
+function sidePlaneTransform(from: Point, to: Point, length: number, depth: number, role: SolidTextSideRole, contourRole: SolidTextContour['role']) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
+  const isInner = contourRole === 'inner';
   if (Math.abs(dy) < 0.01) {
-    const isBottom = role === 'bottom';
+    const unfoldFromDepth = isInner ? role === 'top' : role === 'bottom';
     return {
       size: [length, depth] as Vec2Tuple,
-      position: [Math.min(from.x, to.x), from.y, isBottom ? depth : 0] as Vec3Tuple,
-      rotation: [isBottom ? -90 : 90, 0, 0] as Vec3Tuple,
+      position: [Math.min(from.x, to.x), from.y, unfoldFromDepth ? depth : 0] as Vec3Tuple,
+      rotation: [unfoldFromDepth ? -90 : 90, 0, 0] as Vec3Tuple,
       pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
   if (Math.abs(dx) < 0.01) {
-    const isRight = role === 'right';
+    const unfoldFromDepth = isInner ? role === 'left' : role === 'right';
     return {
       size: [depth, length] as Vec2Tuple,
-      position: [from.x, Math.min(from.y, to.y), isRight ? depth : 0] as Vec3Tuple,
-      rotation: [0, isRight ? 90 : -90, 0] as Vec3Tuple,
+      position: [from.x, Math.min(from.y, to.y), unfoldFromDepth ? depth : 0] as Vec3Tuple,
+      rotation: [0, unfoldFromDepth ? 90 : -90, 0] as Vec3Tuple,
       pivot: [0, 0, 0] as Vec3Tuple,
     };
   }
@@ -513,6 +515,15 @@ function distance(a: Point, b: Point) {
 
 function radiansToDegrees(value: number) {
   return (value / Math.PI) * 180;
+}
+
+function darkenRgba(color: Rgba, factor: number): Rgba {
+  return [
+    Math.round(color[0] * factor),
+    Math.round(color[1] * factor),
+    Math.round(color[2] * factor),
+    color[3],
+  ];
 }
 
 function safeCharId(char: string) {

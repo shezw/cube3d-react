@@ -72,10 +72,10 @@ describe('solid text model', () => {
     const sides = flattenDesignNodes(spec!.root).filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model');
     expect(sides.length).toBeGreaterThan(12);
 
-    const byRole = (role: 'top' | 'bottom' | 'left' | 'right') => {
-      const match = sides.find(({ node }) => node.kind !== 'model' && node.solidTextEdge?.role === role)?.node;
+    const byRole = (role: 'top' | 'bottom' | 'left' | 'right', contour: 'outer' | 'inner' = 'outer') => {
+      const match = sides.find(({ node }) => node.kind !== 'model' && node.solidTextEdge?.role === role && node.solidTextEdge.contour === contour)?.node;
       expect(match?.kind).toBe('plane');
-      if (!match || match.kind === 'model') throw new Error(`Missing ${role} side plane`);
+      if (!match || match.kind === 'model') throw new Error(`Missing ${contour} ${role} side plane`);
       return match;
     };
     const top = byRole('top');
@@ -98,6 +98,37 @@ describe('solid text model', () => {
     expect(bottom.size[0]).toBeCloseTo(bottom.solidTextEdge!.length, 3);
     expect(left.size[1]).toBeCloseTo(left.solidTextEdge!.length, 3);
     expect(right.size[1]).toBeCloseTo(right.solidTextEdge!.length, 3);
+
+    const innerTop = byRole('top', 'inner');
+    const innerBottom = byRole('bottom', 'inner');
+    const innerLeft = byRole('left', 'inner');
+    const innerRight = byRole('right', 'inner');
+    expect(innerTop.transform?.rotation).toEqual([-90, 0, 0]);
+    expect(innerTop.transform?.position?.[2]).toBe(18);
+    expect(innerBottom.transform?.rotation).toEqual([90, 0, 0]);
+    expect(innerBottom.transform?.position?.[2]).toBe(0);
+    expect(innerLeft.transform?.rotation).toEqual([0, 90, 0]);
+    expect(innerLeft.transform?.position?.[2]).toBe(18);
+    expect(innerRight.transform?.rotation).toEqual([0, -90, 0]);
+    expect(innerRight.transform?.position?.[2]).toBe(0);
+  });
+
+  it('alternates side edge colors for legible pseudo-3d facets', () => {
+    const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
+    expect(spec).toBeTruthy();
+    const sideNodes = flattenDesignNodes(spec!.root)
+      .filter(({ path, node }) => path.includes('/side-') && node.kind !== 'model' && node.solidTextEdge?.contour === 'outer')
+      .map(({ node }) => {
+        if (node.kind === 'model') throw new Error('Unexpected model side');
+        return node;
+      })
+      .sort((a, b) => a.solidTextEdge!.edgeIndex - b.solidTextEdge!.edgeIndex);
+    const even = sideNodes.find((node) => node.solidTextEdge?.edgeIndex === 0);
+    const odd = sideNodes.find((node) => node.solidTextEdge?.edgeIndex === 1);
+    expect(even?.color).toEqual([186, 118, 62, 1]);
+    expect(odd?.color).toEqual([145, 92, 48, 1]);
+    expect(even?.solidTextEdge?.color).toEqual(even?.color);
+    expect(odd?.solidTextEdge?.color).toEqual(odd?.color);
   });
 
   it('parses glyph commands and closed contours from the actual font asset', () => {
