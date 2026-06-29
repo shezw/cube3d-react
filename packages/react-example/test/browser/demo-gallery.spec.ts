@@ -16,7 +16,7 @@ import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } f
 import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';
-import { solidTextDemoCharacterSet, solidTextDemoDigits, solidTextDemoLowercase, solidTextDemoUppercase } from '../../src/demos/solidText';
+import { solidTextDemoCharactersPerRow, solidTextDemoCharacterSet, solidTextDemoRows } from '../../src/demos/solidText';
 import { defaultTypefaceFontId, typefaceFontOptions } from '../../src/demos/typefaceFonts';
 
 test.describe('WebGL reference demo gallery', () => {
@@ -137,13 +137,9 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     assertSolidTextSpec(demo);
     await expect(page.locator('[data-solid-font-select]')).toHaveValue(defaultTypefaceFontId);
     await expect(page.locator('[data-solid-font-select] option')).toHaveText(typefaceFontOptions.map((font, index) => (index === 0 ? `${font.label} (implemented)` : font.label)));
-    await expectReferenceTextModes(page, ['solid-text/solidUppercase', 'solid-text/solidLowercase', 'solid-text/solidDigits']);
-    await expectSolidTextReferenceFonts(page, [
-      { path: 'solid-text/solidUppercase', fontId: defaultTypefaceFontId },
-      { path: 'solid-text/solidLowercase', fontId: defaultTypefaceFontId },
-      { path: 'solid-text/solidDigits', fontId: defaultTypefaceFontId },
-    ]);
-    await expect(page.locator('[data-cube3d-model="solid-text"]')).toHaveCount(3);
+    await expectReferenceTextModes(page, solidTextDemoRows.map((row) => `solid-text/${row.id}`));
+    await expectSolidTextReferenceFonts(page, solidTextDemoRows.map((row) => ({ path: `solid-text/${row.id}`, fontId: defaultTypefaceFontId })));
+    await expect(page.locator('[data-cube3d-model="solid-text"]')).toHaveCount(solidTextDemoRows.length);
     await expect(page.locator('[data-cube3d-model="solid-text-glyph"]')).toHaveCount(solidTextDemoCharacterSet.length);
     await expect(page.locator('[data-cube3d-path^="solid-text/solid"][data-cube3d-layer-index]')).toHaveCount(0);
     await expect(page.locator('[data-cube3d-path^="solid-text/solid"][data-cube3d-path*="/front-"]')).toHaveCount(0);
@@ -152,7 +148,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expect(page.locator('[data-cube3d-path*="/top-"] [data-cube3d-face="top"]')).toHaveCount(solidTextDemoCharacterSet.length);
     await expect(page.locator('[data-cube3d-path*="/bottom-"] [data-cube3d-face="bottom"]')).toHaveCount(solidTextDemoCharacterSet.length);
     expect(await page.locator('[data-cube3d-path*="/side-"] [data-cube3d-face="side"]').count()).toBeGreaterThan(12);
-    await expect(page.locator('[data-cube3d-path="solid-text/solidUppercase/glyph-0-A/top-g0-A"] [data-cube3d-glyph="A"]')).toHaveCount(1);
+    await expect(page.locator('[data-cube3d-path="solid-text/solidRow1/glyph-0-A/top-g0-A"] [data-cube3d-glyph="A"]')).toHaveCount(1);
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-contour="outer"]')).not.toHaveCount(0);
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-contour="inner"]')).not.toHaveCount(0);
     await expect(page.locator('[data-cube3d-path*="/side-"] [data-cube3d-edge-role]')).not.toHaveCount(0);
@@ -224,11 +220,7 @@ function assertLayeredTextSpec(demo: DemoSpec) {
 
 function assertSolidTextSpec(demo: DemoSpec) {
   const nodes = flattenDesignNodes(demo.root);
-  const solidTextRows = [
-    ['solidUppercase', solidTextDemoUppercase],
-    ['solidLowercase', solidTextDemoLowercase],
-    ['solidDigits', solidTextDemoDigits],
-  ] as const;
+  const solidTextRows = solidTextDemoRows.map((row) => [row.id, row.text] as const);
   const glyphs = nodes.filter(({ path, node }) => path.startsWith('solid-text/solid') && path.includes('/glyph-') && node.kind === 'model');
   const top = nodes.filter(({ path }) => path.includes('/top-'));
   const bottom = nodes.filter(({ path }) => path.includes('/bottom-'));
@@ -241,9 +233,11 @@ function assertSolidTextSpec(demo: DemoSpec) {
     expect(model.solidText?.fontName).toBe('Press Start 2P');
     expect(model.solidText?.sourceIndex).toBe(9);
     expect(model.solidText?.text).toBe(text);
-    expect(model.solidText?.fontSize).toBe(9);
-    expect(model.solidText?.depth).toBe(5);
+    expect(model.solidText?.fontSize).toBe(14);
+    expect(model.solidText?.depth).toBe(7);
   }
+  expect(solidTextRows.slice(0, -1).every(([, text]) => text.length === solidTextDemoCharactersPerRow)).toBe(true);
+  expect(solidTextRows.at(-1)?.[1].length).toBe(solidTextDemoCharacterSet.length % solidTextDemoCharactersPerRow);
   expect(glyphs).toHaveLength(solidTextDemoCharacterSet.length);
   expect(top).toHaveLength(sumSolidTextFaces(nodes, 'topFaces'));
   expect(bottom).toHaveLength(sumSolidTextFaces(nodes, 'bottomFaces'));

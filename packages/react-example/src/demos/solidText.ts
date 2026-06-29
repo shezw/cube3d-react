@@ -14,24 +14,32 @@ export const solidTextDemoUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const solidTextDemoLowercase = 'abcdefghijklmnopqrstuvwxyz';
 export const solidTextDemoDigits = '0123456789';
 export const solidTextDemoCharacterSet = `${solidTextDemoUppercase}${solidTextDemoLowercase}${solidTextDemoDigits}`;
-
-const solidTextDemoRows = [
-  { id: 'solidUppercase', text: solidTextDemoUppercase, position: [14, 58, 30] as Vec3Tuple },
-  { id: 'solidLowercase', text: solidTextDemoLowercase, position: [14, 88, 30] as Vec3Tuple },
-  { id: 'solidDigits', text: solidTextDemoDigits, position: [14, 118, 30] as Vec3Tuple },
-];
+export const solidTextDemoCharactersPerRow = 8;
+export const solidTextDemoRows = chunkText(solidTextDemoCharacterSet, solidTextDemoCharactersPerRow).map((text, index) => ({
+  id: `solidRow${index + 1}`,
+  text,
+  position: [20, 34 + index * 17, 30] as Vec3Tuple,
+}));
 
 export function createSolidTextDemoNodes(fontId: TypefaceFontId = defaultTypefaceFontId): DesignModelNode[] {
   return solidTextDemoRows.map((row) => createTypefaceSolidTextNode(row.id, {
     text: row.text,
     fontId,
-    fontSize: 9,
-    depth: 5,
+    fontSize: 14,
+    depth: 7,
     transform: { position: row.position, rotation: [0, 0, -4] },
     topColor: [246, 213, 98, 1],
     bottomColor: [118, 75, 48, 1],
     sideColor: [186, 118, 62, 1],
   }));
+}
+
+function chunkText(text: string, size: number) {
+  const chunks: string[] = [];
+  for (let index = 0; index < text.length; index += size) {
+    chunks.push(text.slice(index, index + size));
+  }
+  return chunks;
 }
 
 export type Point = { x: number; y: number };

@@ -8,10 +8,9 @@ import {
   createTypefaceSolidTextNode,
   parseGlyphPathCommands,
   parseSolidTextGlyphs,
+  solidTextDemoCharactersPerRow,
   solidTextDemoCharacterSet,
-  solidTextDemoDigits,
-  solidTextDemoLowercase,
-  solidTextDemoUppercase,
+  solidTextDemoRows,
 } from '../../src/demos/solidText';
 import { defaultTypefaceFontId, getTypefaceFont, typefaceFontOptions } from '../../src/demos/typefaceFonts';
 
@@ -42,11 +41,7 @@ describe('solid text model', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
     const nodes = flattenDesignNodes(spec!.root);
-    const solidTextModels = [
-      ['solidUppercase', solidTextDemoUppercase],
-      ['solidLowercase', solidTextDemoLowercase],
-      ['solidDigits', solidTextDemoDigits],
-    ] as const;
+    const solidTextModels = solidTextDemoRows.map((row) => [row.id, row.text] as const);
 
     const glyphModels = nodes.filter(({ path, node }) => path.startsWith('solid-text/solid') && path.includes('/glyph-') && node.kind === 'model');
     const top = nodes.filter(({ path }) => path.includes('/top-'));
@@ -62,10 +57,12 @@ describe('solid text model', () => {
         fontName: 'Press Start 2P',
         sourceIndex: 9,
         text,
-        fontSize: 9,
-        depth: 5,
+        fontSize: 14,
+        depth: 7,
       });
     }
+    expect(solidTextModels.slice(0, -1).every(([, text]) => text.length === solidTextDemoCharactersPerRow)).toBe(true);
+    expect(solidTextModels.at(-1)?.[1].length).toBe(solidTextDemoCharacterSet.length % solidTextDemoCharactersPerRow);
     expect(glyphModels).toHaveLength(solidTextDemoCharacterSet.length);
     expect(top).toHaveLength(sumSolidTextFaces(nodes, 'topFaces'));
     expect(bottom).toHaveLength(sumSolidTextFaces(nodes, 'bottomFaces'));
@@ -95,7 +92,7 @@ describe('solid text model', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
     const nodes = flattenDesignNodes(spec!.root);
-    const solidWord = nodes.find(({ path }) => path === 'solid-text/solidUppercase')?.node;
+    const solidWord = nodes.find(({ path }) => path === `solid-text/${solidTextDemoRows[0].id}`)?.node;
     expect(solidWord?.kind).toBe('model');
     if (solidWord?.kind !== 'model') return;
     const depth = solidWord.solidText!.depth;
@@ -230,7 +227,7 @@ describe('solid text model', () => {
     const spec = demoSpecs.find((demo) => demo.id === 'solid-text');
     expect(spec).toBeTruthy();
     const world = resolveScene(createSceneFromSpec(spec!));
-    const solidWord = findWorldNode(world, 'solid-text/solidUppercase');
+    const solidWord = findWorldNode(world, `solid-text/${solidTextDemoRows[0].id}`);
     expect(solidWord?.node.modelName).toBe('solid-text');
     expect(solidWord?.worldBounds).toBeTruthy();
     expect(solidWord!.worldBounds!.max.x).toBeGreaterThan(solidWord!.worldBounds!.min.x);

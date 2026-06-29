@@ -7,7 +7,7 @@
     @email   : hello@shezw.com
 */
 
-import { createSolidTextDemoNodes, solidTextDemoCharacterSet, type SolidTextEdgeMetadata, type SolidTextFaceMetadata, type SolidTextGlyphMetadata } from './solidText';
+import { createSolidTextDemoNodes, solidTextDemoCharacterSet, solidTextDemoRows, type SolidTextEdgeMetadata, type SolidTextFaceMetadata, type SolidTextGlyphMetadata } from './solidText';
 import { defaultTypefaceFontId } from './typefaceFonts';
 
 export type DemoId =
@@ -345,26 +345,26 @@ export const demoSpecs: DemoSpec[] = [
       kind: 'model',
       modelName: 'solid-text-demo',
       children: [
-        box('base', [360, 152, 16], [58, 73, 213, 1], {
-          transform: { position: [0, 142, 0] },
+        box('base', [360, 184, 16], [58, 73, 213, 1], {
+          transform: { position: [0, 158, 0] },
           faceColors: { top: [67, 80, 230, 1], front: [37, 47, 170, 1] },
         }),
         ...createSolidTextDemoNodes(defaultTypefaceFontId),
-        box('comparisonBlock', [28, 28, 22], [239, 130, 168, 1], { transform: { position: [318, 48, 26] } }),
+        box('comparisonBlock', [28, 28, 22], [239, 130, 168, 1], { transform: { position: [318, 32, 26] } }),
       ],
     },
     requiredPaths: [
       'solid-text/base',
-      'solid-text/solidUppercase',
-      'solid-text/solidUppercase/glyph-0-A',
-      'solid-text/solidUppercase/glyph-0-A/top-g0-A',
-      'solid-text/solidUppercase/glyph-0-A/bottom-g0-A',
-      'solid-text/solidUppercase/glyph-0-A/side-g0-c0-e0',
-      'solid-text/solidLowercase',
-      'solid-text/solidDigits',
+      'solid-text/solidRow1',
+      'solid-text/solidRow1/glyph-0-A',
+      'solid-text/solidRow1/glyph-0-A/top-g0-A',
+      'solid-text/solidRow1/glyph-0-A/bottom-g0-A',
+      'solid-text/solidRow1/glyph-0-A/side-g0-c0-e0',
+      'solid-text/solidRow2',
+      'solid-text/solidRow8',
     ],
-    projectionPaths: ['solid-text/base', 'solid-text/solidUppercase', 'solid-text/solidLowercase', 'solid-text/solidDigits', 'solid-text/comparisonBlock'],
-    modelCounts: { 'solid-text-demo': 1, 'solid-text': 3, 'solid-text-glyph': solidTextDemoCharacterSet.length },
+    projectionPaths: ['solid-text/base', ...solidTextDemoRows.map((row) => `solid-text/${row.id}`), 'solid-text/comparisonBlock'],
+    modelCounts: { 'solid-text-demo': 1, 'solid-text': solidTextDemoRows.length, 'solid-text-glyph': solidTextDemoCharacterSet.length },
   },
   {
     id: 'cylinder-8',
