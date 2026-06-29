@@ -10,9 +10,14 @@
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
     "test:browser": "pnpm --filter @cube3d/react-example test:browser",
-    "test:all": "pnpm -r test -- --run && pnpm -r run build && pnpm test:browser"
+    "test:webgl-reference": "pnpm --filter @cube3d/react-example test:webgl-reference",
+    "test:all": "pnpm -r test -- --run && pnpm -r run build && pnpm test:browser && pnpm test:webgl-reference"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.61.1",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0"
   }
 }

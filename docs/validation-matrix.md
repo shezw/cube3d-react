@@ -19,6 +19,7 @@ Cube3D validation is layered. A passing build is only a package health check; it
 | Renderer contract tests | `pnpm --filter @cube3d/react test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, core descriptor mapping | Pixel output or final example composition |
 | Example model tests | `pnpm --filter @cube3d/react-example test -- --run` | Character/controller/cover scene models are semantic and anchor based | Browser layout, viewport scale, actual visual visibility |
 | Browser structure tests | `pnpm test:browser` | Real Chromium can render the example; model objects are visible; key projected anchors remain aligned | Pixel-perfect design matching or screenshot regression |
+| WebGL reference demos | `pnpm test:webgl-reference` | Cube3D demos remain visually close to simplified Three.js references and keep structural contracts | Production-grade visual parity with true 3D rendering |
 | Build | `pnpm -r run build` | TypeScript, bundling, package exports, Vite production build | Runtime rendering accuracy |
 
 ## Required Gates
@@ -26,6 +27,7 @@ Cube3D validation is layered. A passing build is only a package health check; it
 - Fast local gate: `pnpm -r test -- --run`
 - Build gate: `pnpm -r run build`
 - Browser gate: `pnpm test:browser`
+- WebGL reference gate: `pnpm test:webgl-reference`
 - Full gate: `pnpm test:all`
 
 ## Browser Structure Policy

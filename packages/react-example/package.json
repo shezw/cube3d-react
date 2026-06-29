@@ -8,23 +8,25 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test cover-scene.spec.ts",
+    "test:webgl-reference": "playwright test demo-gallery.spec.ts"
   },
   "dependencies": {
+    "@cube3d/core": "workspace:*",
+    "@cube3d/react": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@cube3d/core": "workspace:*",
-    "@cube3d/react": "workspace:*"
+    "three": "^0.185.0"
   },
   "devDependencies": {
-    "vite": "^5.4.8",
-    "@vitejs/plugin-react": "^4.3.1",
-    "vitest": "^1.6.0",
-    "@testing-library/react": "^16.0.0",
     "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
     "jsdom": "^24.0.0",
     "typescript": "^5.6.3",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1"
+    "vite": "^5.4.8",
+    "vitest": "^1.6.0"
   }
 }

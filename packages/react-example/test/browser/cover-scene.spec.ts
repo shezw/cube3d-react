@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('cover scene browser structure', () => {
   test('renders visible model-driven objects with aligned projected anchors', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?demo=cover-scene');
     await expect(page.locator('[data-cube3d-model="character"]')).toHaveCount(1);
     await expect(page.locator('[data-cube3d-model="controller"]')).toHaveCount(1);
     await expect(page.locator('[data-cube3d-model="camera"]')).toHaveCount(1);
@@ -29,17 +29,17 @@ test.describe('cover scene browser structure', () => {
           island: modelArea('island'),
         },
         keyPaths: [
-          'character/body',
-          'character/head',
-          'character/controller',
-          'character/leftHand',
-          'character/rightHand',
+          'cover-scene/character/body',
+          'cover-scene/character/head',
+          'cover-scene/character/controller',
+          'cover-scene/character/leftHand',
+          'cover-scene/character/rightHand',
         ].map((path) => ({ path, exists: Boolean(document.querySelector(`[data-cube3d-path="${path}"]`)) })),
         anchorDistances: {
-          headToNeck: anchorDistance('character/head', 'bottom', 'character/neck', 'top'),
-          hatToHead: anchorDistance('character/hatBrim', 'bottom', 'character/head', 'top'),
-          leftGrip: anchorDistance('character/leftHand', 'grip', 'character/controller', 'leftGrip'),
-          rightGrip: anchorDistance('character/rightHand', 'grip', 'character/controller', 'rightGrip'),
+          headToNeck: anchorDistance('cover-scene/character/head', 'bottom', 'cover-scene/character/neck', 'top'),
+          hatToHead: anchorDistance('cover-scene/character/hatBrim', 'bottom', 'cover-scene/character/head', 'top'),
+          leftGrip: anchorDistance('cover-scene/character/leftHand', 'grip', 'cover-scene/character/controller', 'leftGrip'),
+          rightGrip: anchorDistance('cover-scene/character/rightHand', 'grip', 'cover-scene/character/controller', 'rightGrip'),
         },
       };
 
@@ -73,7 +73,7 @@ test.describe('cover scene browser structure', () => {
     });
 
     expect(scene.rootArea).toBeGreaterThan(0);
-    expect(scene.bodyText).toContain('设计');
+    expect(scene.bodyText).toContain('Cover Scene');
     expect(scene.modelAreas.character).toBeGreaterThan(1_000);
     expect(scene.modelAreas.controller).toBeGreaterThan(300);
     expect(scene.modelAreas.camera).toBeGreaterThan(300);
