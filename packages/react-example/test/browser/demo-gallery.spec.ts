@@ -132,12 +132,41 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectFaceBackgroundNotTransparent(page, 'interaction-html/html-sprite');
   }
   if (demo.id === 'cylinder-8') {
+    assertCylinderSpecGeometry(demo);
     await expect(page.locator('[data-cube3d-path^="cylinder-8/cylinder/side"]')).toHaveCount(8);
     await expectCircleFace(page, 'cylinder-8/cylinder/topCircle');
     await expectCircleFace(page, 'cylinder-8/cylinder/bottomCircle');
     await expectFaceBackgroundNotTransparent(page, 'cylinder-8/cylinder/side0');
     await expectTrueCylinderReference(page);
   }
+}
+
+function assertCylinderSpecGeometry(demo: DemoSpec) {
+  const nodes = flattenDesignNodes(demo.root);
+  const cylinder = nodes.find(({ path }) => path === 'cylinder-8/cylinder')?.node;
+  const topCircle = nodes.find(({ path }) => path === 'cylinder-8/cylinder/topCircle')?.node;
+  const bottomCircle = nodes.find(({ path }) => path === 'cylinder-8/cylinder/bottomCircle')?.node;
+  const side0 = nodes.find(({ path }) => path === 'cylinder-8/cylinder/side0')?.node;
+  const sides = nodes.filter(({ path }) => /^cylinder-8\/cylinder\/side\d+$/.test(path));
+
+  expect(cylinder?.kind).toBe('model');
+  if (cylinder?.kind !== 'model' || topCircle?.kind === 'model' || bottomCircle?.kind === 'model' || side0?.kind === 'model') return;
+
+  const reference = cylinder.referenceShape;
+  expect(reference?.kind).toBe('cylinder');
+  if (!reference || reference.kind !== 'cylinder') return;
+
+  const radius = reference.radius;
+  const topY = reference.position[1] - reference.height / 2;
+  const bottomY = reference.position[1] + reference.height / 2;
+  const expectedSideWidth = Math.round(2 * radius * Math.tan(Math.PI / 8));
+
+  expect(sides).toHaveLength(8);
+  expect(topCircle.transform?.position).toEqual([reference.position[0] - radius, topY - radius, reference.position[2]]);
+  expect(bottomCircle.transform?.position).toEqual([reference.position[0] - radius, bottomY - radius, reference.position[2]]);
+  expect(side0.transform?.position?.[1]).toBe(topY);
+  expect(side0.size[0]).toBe(expectedSideWidth);
+  expect(side0.size[1]).toBe(reference.height);
 }
 
 async function expectFaceBackgroundNotTransparent(page: Page, path: string) {

@@ -234,11 +234,11 @@ const cylinderNode: DesignModelNode = {
   },
   children: [
     plane('topCircle', [96, 96], cylinderTop, {
-      transform: { position: [72, 18, 72], rotation: [90, 0, 0] },
+      transform: { position: [72, -12, 72], rotation: [90, 0, 0] },
       shape: 'circle',
     }),
     plane('bottomCircle', [96, 96], cylinderBottom, {
-      transform: { position: [72, 122, 72], rotation: [90, 0, 0] },
+      transform: { position: [72, 92, 72], rotation: [90, 0, 0] },
       shape: 'circle',
     }),
     ...cylinderSidePanels(120, 88, 72, 48, 104, 8),
