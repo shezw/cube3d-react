@@ -42,10 +42,10 @@ export function Character3D({ position, rotation, scale }: Character3DProps) {
           faceStyle={shadowStyle}
         />
 
-        <Controller3D />
         <CharacterBody />
         <CharacterHead />
         <CharacterArms />
+        <Controller3D />
         <CharacterHands />
       </div>
     </Space3D>
@@ -54,9 +54,9 @@ export function Character3D({ position, rotation, scale }: Character3DProps) {
 
 function CharacterBody() {
   return (
-    <Space3D position={{ x: 30, y: 8, z: 74 }}>
+    <Space3D position={{ x: 32, y: 30, z: 70 }}>
       <Box3D
-        size={{ x: 86, y: 80, z: 64 }}
+        size={{ x: 84, y: 76, z: 76 }}
         material={{ kind: 'solid', rgba: [73, 84, 235, 1] }}
         materials={{
           top: { kind: 'solid', rgba: [96, 107, 255, 1] },
@@ -65,18 +65,19 @@ function CharacterBody() {
         }}
         contrast={12}
       />
-      <Box3D size={{ x: 96, y: 24, z: 24 }} position={{ x: -5, y: 66, z: -28 }} material={solid([47, 54, 185, 1])} contrast={8} />
-      <Box3D size={{ x: 18, y: 58, z: 24 }} position={{ x: 5, y: 84, z: -58 }} material={solid([38, 42, 96, 1])} contrast={6} />
-      <Box3D size={{ x: 18, y: 58, z: 24 }} position={{ x: 64, y: 84, z: -58 }} material={solid([38, 42, 96, 1])} contrast={6} />
+      <Box3D size={{ x: 36, y: 28, z: 24 }} position={{ x: 24, y: -16, z: 46 }} material={solid([222, 188, 147, 1])} contrast={8} />
+      <Box3D size={{ x: 104, y: 28, z: 24 }} position={{ x: -10, y: 66, z: -26 }} material={solid([47, 54, 185, 1])} contrast={8} />
+      <Box3D size={{ x: 20, y: 60, z: 26 }} position={{ x: 8, y: 86, z: -58 }} material={solid([38, 42, 96, 1])} contrast={6} />
+      <Box3D size={{ x: 20, y: 60, z: 26 }} position={{ x: 58, y: 86, z: -58 }} material={solid([38, 42, 96, 1])} contrast={6} />
     </Space3D>
   );
 }
 
 function CharacterHead() {
   return (
-    <Space3D position={{ x: 42, y: -54, z: 145 }}>
+    <Space3D position={{ x: 42, y: -8, z: 122 }}>
       <Box3D
-        size={{ x: 70, y: 64, z: 58 }}
+        size={{ x: 68, y: 60, z: 54 }}
         material={solid([238, 222, 198, 1])}
         materials={{
           front: { kind: 'solid', rgba: [242, 226, 204, 1] },
@@ -88,11 +89,11 @@ function CharacterHead() {
         })}
         contrast={8}
       />
-      <Sprite3D size={{ x: 52, y: 28 }} position={{ x: 9, y: 42, z: 31 }} faceStyle={faceStyle}>
+      <Sprite3D size={{ x: 50, y: 24 }} position={{ x: 9, y: 38, z: 29 }} faceStyle={faceStyle}>
         <span>└─┘</span>
       </Sprite3D>
-      <Box3D size={{ x: 92, y: 72, z: 16 }} position={{ x: -11, y: -14, z: 58 }} material={solid([244, 234, 218, 1])} contrast={8} />
-      <Box3D size={{ x: 68, y: 52, z: 22 }} position={{ x: 2, y: -34, z: 72 }} material={solid([238, 226, 210, 1])} contrast={9} />
+      <Box3D size={{ x: 88, y: 68, z: 14 }} position={{ x: -10, y: -10, z: 48 }} material={solid([244, 234, 218, 1])} contrast={8} />
+      <Box3D size={{ x: 64, y: 48, z: 20 }} position={{ x: 2, y: -25, z: 58 }} material={solid([238, 226, 210, 1])} contrast={9} />
     </Space3D>
   );
 }
@@ -100,14 +101,14 @@ function CharacterHead() {
 function CharacterArms() {
   return (
     <>
-      <Space3D position={{ x: -8, y: 30, z: 100 }} rotation={{ z: -14 }}>
-        <Box3D size={{ x: 28, y: 76, z: 30 }} material={solid([222, 188, 147, 1])} contrast={9} />
-        <Box3D size={{ x: 28, y: 34, z: 30 }} position={{ x: 0, y: 62, z: -18 }} material={solid([74, 84, 220, 1])} contrast={8} />
+      <Space3D position={{ x: 4, y: 62, z: 96 }} rotation={{ z: -10 }}>
+        <Box3D size={{ x: 30, y: 68, z: 28 }} material={solid([222, 188, 147, 1])} contrast={9} />
+        <Box3D size={{ x: 32, y: 34, z: 30 }} position={{ x: -2, y: -2, z: 10 }} material={solid([74, 84, 220, 1])} contrast={8} />
       </Space3D>
 
-      <Space3D position={{ x: 116, y: 32, z: 98 }} rotation={{ z: 18 }}>
-        <Box3D size={{ x: 30, y: 78, z: 30 }} material={solid([222, 188, 147, 1])} contrast={9} />
-        <Box3D size={{ x: 30, y: 34, z: 30 }} position={{ x: 0, y: 60, z: -16 }} material={solid([68, 78, 213, 1])} contrast={8} />
+      <Space3D position={{ x: 100, y: 62, z: 96 }} rotation={{ z: 12 }}>
+        <Box3D size={{ x: 30, y: 68, z: 28 }} material={solid([222, 188, 147, 1])} contrast={9} />
+        <Box3D size={{ x: 32, y: 34, z: 30 }} position={{ x: -1, y: -2, z: 10 }} material={solid([68, 78, 213, 1])} contrast={8} />
       </Space3D>
     </>
   );
@@ -117,15 +118,15 @@ function CharacterHands() {
   return (
     <>
       <Box3D
-        size={{ x: 38, y: 34, z: 32 }}
-        position={{ x: -16, y: 92, z: 72 }}
+        size={{ x: 36, y: 32, z: 30 }}
+        position={{ x: 2, y: 112, z: 64 }}
         material={solid([226, 190, 148, 1])}
         faceStyle={{ borderRadius: 7 }}
         contrast={8}
       />
       <Box3D
-        size={{ x: 42, y: 36, z: 34 }}
-        position={{ x: 118, y: 96, z: 70 }}
+        size={{ x: 38, y: 34, z: 32 }}
+        position={{ x: 108, y: 112, z: 64 }}
         material={solid([226, 190, 148, 1])}
         faceStyle={{ borderRadius: 8 }}
         contrast={8}
@@ -136,9 +137,9 @@ function CharacterHands() {
 
 function Controller3D() {
   return (
-    <Space3D position={{ x: -18, y: 96, z: 36 }}>
+    <Space3D position={{ x: -4, y: 116, z: 38 }}>
       <Box3D
-        size={{ x: 142, y: 88, z: 26 }}
+        size={{ x: 132, y: 78, z: 26 }}
         material={solid([82, 83, 132, 1])}
         materials={{
           top: { kind: 'solid', rgba: [101, 102, 154, 1] },
@@ -147,11 +148,11 @@ function Controller3D() {
         faceStyle={{ borderRadius: 5 }}
         contrast={9}
       />
-      <ButtonDot color={[42, 183, 99, 1]} x={22} y={26} />
-      <ButtonDot color={[221, 139, 55, 1]} x={56} y={35} />
-      <ButtonDot color={[57, 154, 210, 1]} x={32} y={58} />
-      <Box3D size={{ x: 16, y: 16, z: 46 }} position={{ x: 94, y: 45, z: 24 }} material={solid([42, 45, 62, 1])} contrast={6} />
-      <Sprite3D size={{ x: 84, y: 154 }} position={{ x: 121, y: 84, z: 18 }} faceStyle={cordStyle} />
+      <ButtonDot color={[42, 183, 99, 1]} x={22} y={23} />
+      <ButtonDot color={[221, 139, 55, 1]} x={54} y={31} />
+      <ButtonDot color={[57, 154, 210, 1]} x={32} y={52} />
+      <Box3D size={{ x: 16, y: 16, z: 42 }} position={{ x: 88, y: 40, z: 24 }} material={solid([42, 45, 62, 1])} contrast={6} />
+      <Sprite3D size={{ x: 84, y: 154 }} position={{ x: 111, y: 76, z: 18 }} faceStyle={cordStyle} />
     </Space3D>
   );
 }
