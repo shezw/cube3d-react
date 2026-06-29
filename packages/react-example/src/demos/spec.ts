@@ -33,6 +33,15 @@ export type DesignMaterialMap = Partial<Record<'front' | 'back' | 'left' | 'righ
 
 export type DesignPrimitiveKind = 'box' | 'plane' | 'sprite' | 'extrude';
 
+export type WebGLReferenceShape = {
+  kind: 'cylinder';
+  radius: number;
+  height: number;
+  color: Rgba;
+  position: Vec3Tuple;
+  segments?: number;
+};
+
 export type DesignPrimitiveNode = {
   id: string;
   kind: DesignPrimitiveKind;
@@ -56,6 +65,7 @@ export type DesignModelNode = {
   anchors?: DesignAnchorMap;
   children: DesignNode[];
   attachments?: DesignAttachment[];
+  referenceShape?: WebGLReferenceShape;
 };
 
 export type DesignNode = DesignPrimitiveNode | DesignModelNode;
@@ -82,6 +92,7 @@ export type DemoSpec = {
   maxDiffRatio: number;
   root: DesignModelNode;
   requiredPaths: string[];
+  projectionPaths?: string[];
   anchorChecks?: AnchorCheckSpec[];
   modelCounts?: Record<string, number>;
   interactionChecks?: Array<'cube-face' | 'controller-button' | 'sprite-button'>;
@@ -213,6 +224,14 @@ const cylinderNode: DesignModelNode = {
   id: 'cylinder',
   kind: 'model',
   modelName: 'cylinder-8-panel',
+  referenceShape: {
+    kind: 'cylinder',
+    radius: 48,
+    height: 104,
+    color: cylinderBlue,
+    position: [120, 88, 72],
+    segments: 48,
+  },
   children: [
     plane('topCircle', [96, 96], cylinderTop, {
       transform: { position: [72, 18, 72], rotation: [90, 0, 0] },
@@ -272,6 +291,7 @@ export const demoSpecs: DemoSpec[] = [
       'cylinder-8/cylinder/side7',
       'cylinder-8/scaleBlock',
     ],
+    projectionPaths: ['cylinder-8/cylinder', 'cylinder-8/scaleBlock'],
     modelCounts: { 'cylinder-8': 1, 'cylinder-8-panel': 1 },
   },
   {
@@ -481,7 +501,7 @@ function cylinderSidePanels(
   height: number,
   segments: number,
 ): DesignPrimitiveNode[] {
-  const panelWidth = Math.round((2 * Math.PI * radius) / segments);
+  const panelWidth = Math.round(2 * radius * Math.tan(Math.PI / segments));
   return Array.from({ length: segments }, (_, index) => {
     const angle = (index / segments) * 360;
     const radians = (angle / 180) * Math.PI;

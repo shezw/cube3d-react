@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
 import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
-import type { DesignNode, DesignPrimitiveNode } from './spec';
+import type { DesignNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';
 
 export function ThreeReference({ spec }: { spec: DemoSpec }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -61,9 +61,15 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<
   group.name = node.id;
   group.userData.cube3dPath = path;
   group.userData.cube3dPrimitive = node.primitive;
+  group.userData.cube3dReferenceShape = designNode?.kind === 'model' ? designNode.referenceShape : undefined;
   group.matrixAutoUpdate = false;
   group.matrix.copy(cssMatrix(node.transform, primitiveOrigin(node)));
   parent.add(group);
+
+  if (designNode?.kind === 'model' && designNode.referenceShape) {
+    addReferenceShape(group, designNode.referenceShape);
+    return;
+  }
 
   if (node.primitive) {
     addPrimitive(group, node.primitive, designNode?.kind === 'model' ? undefined : designNode);
@@ -81,17 +87,42 @@ function collectReferenceBounds(root: THREE.Object3D, camera: THREE.Camera, canv
   root.traverse((object) => {
     const path = object.userData.cube3dPath as string | undefined;
     const primitive = object.userData.cube3dPrimitive as Primitive | undefined;
-    if (!path || !primitive) return;
+    const referenceShape = object.userData.cube3dReferenceShape as WebGLReferenceShape | undefined;
+    if (!path) return;
 
-    const projected = projectPrimitiveBounds(object, primitive, camera, canvas);
+    const projected = referenceShape
+      ? projectReferenceShapeBounds(object, referenceShape, camera, canvas)
+      : primitive
+        ? projectPrimitiveBounds(object, primitive, camera, canvas)
+        : undefined;
+    if (!projected) return;
     bounds[path] = projected;
   });
   return bounds;
 }
 
+function projectReferenceShapeBounds(object: THREE.Object3D, shape: WebGLReferenceShape, camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  if (shape.kind === 'cylinder') {
+    const radius = shape.radius;
+    const halfHeight = shape.height / 2;
+    const [cx, cy, cz] = shape.position;
+    return projectCorners([
+      [cx - radius, cy - halfHeight, cz - radius],
+      [cx + radius, cy - halfHeight, cz - radius],
+      [cx - radius, cy + halfHeight, cz - radius],
+      [cx + radius, cy + halfHeight, cz - radius],
+      [cx - radius, cy - halfHeight, cz + radius],
+      [cx + radius, cy - halfHeight, cz + radius],
+      [cx - radius, cy + halfHeight, cz + radius],
+      [cx + radius, cy + halfHeight, cz + radius],
+    ], object, camera, canvas);
+  }
+  return undefined;
+}
+
 function projectPrimitiveBounds(object: THREE.Object3D, primitive: Primitive, camera: THREE.Camera, canvas: HTMLCanvasElement) {
   const bounds = getPrimitiveBounds(primitive);
-  const corners = [
+  return projectCorners([
     [bounds.min.x, bounds.min.y, bounds.min.z],
     [bounds.max.x, bounds.min.y, bounds.min.z],
     [bounds.min.x, bounds.max.y, bounds.min.z],
@@ -100,7 +131,11 @@ function projectPrimitiveBounds(object: THREE.Object3D, primitive: Primitive, ca
     [bounds.max.x, bounds.min.y, bounds.max.z],
     [bounds.min.x, bounds.max.y, bounds.max.z],
     [bounds.max.x, bounds.max.y, bounds.max.z],
-  ].map(([x, y, z]) => {
+  ], object, camera, canvas);
+}
+
+function projectCorners(corners3D: number[][], object: THREE.Object3D, camera: THREE.Camera, canvas: HTMLCanvasElement) {
+  const corners = corners3D.map(([x, y, z]) => {
     const point = new THREE.Vector3(x, y, z).applyMatrix4(object.matrixWorld).project(camera);
     return {
       x: ((point.x + 1) / 2) * canvas.width,
@@ -144,6 +179,16 @@ function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: Des
   }
 
   addPlaneFace(group, primitive, getPrimitiveFaces(primitive)[0], designNode);
+}
+
+function addReferenceShape(group: THREE.Group, shape: WebGLReferenceShape) {
+  if (shape.kind === 'cylinder') {
+    const geometry = new THREE.CylinderGeometry(shape.radius, shape.radius, shape.height, shape.segments ?? 48);
+    const mesh = new THREE.Mesh(geometry, materialFor({ kind: 'solid', rgba: shape.color }));
+    mesh.position.set(shape.position[0], shape.position[1], shape.position[2]);
+    group.add(mesh);
+    addEdges(mesh, geometry);
+  }
 }
 
 function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescriptor, designNode?: DesignPrimitiveNode) {

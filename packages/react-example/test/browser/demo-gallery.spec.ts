@@ -136,6 +136,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectCircleFace(page, 'cylinder-8/cylinder/topCircle');
     await expectCircleFace(page, 'cylinder-8/cylinder/bottomCircle');
     await expectFaceBackgroundNotTransparent(page, 'cylinder-8/cylinder/side0');
+    await expectTrueCylinderReference(page);
   }
 }
 
@@ -149,8 +150,15 @@ async function expectCircleFace(page: Page, path: string) {
   expect(borderRadius, `${path} should render as a circular face`).toContain('50%');
 }
 
+async function expectTrueCylinderReference(page: Page) {
+  const referencePaths = await page.locator('[data-reference-canvas]').evaluate((element) => Object.keys(JSON.parse((element as HTMLElement).dataset.referenceBounds ?? '{}')));
+  expect(referencePaths).toContain('cylinder-8/cylinder');
+  expect(referencePaths).not.toContain('cylinder-8/cylinder/side0');
+  expect(referencePaths).not.toContain('cylinder-8/cylinder/topCircle');
+}
+
 async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {
-  const expectedPaths = flattenDesignNodes(demo.root)
+  const expectedPaths = demo.projectionPaths ?? flattenDesignNodes(demo.root)
     .filter(({ node }) => node.kind !== 'model')
     .map(({ path }) => path);
   const report = await page.evaluate((paths) => {

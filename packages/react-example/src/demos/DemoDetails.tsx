@@ -35,6 +35,7 @@ export function formatSceneTree(root: DesignModelNode): string {
 export function formatImplementationCode(spec: DemoSpec): string {
   const rootCode = formatNodeCode(spec.root, 2);
   const requiredPaths = spec.requiredPaths.map((path) => `  '${path}'`).join(',\n');
+  const projectionPaths = spec.projectionPaths ? `,\n  projectionPaths: ${formatValue(spec.projectionPaths, 2)}` : '';
   const anchorChecks = spec.anchorChecks ? `,\n  anchorChecks: ${formatValue(spec.anchorChecks, 2)}` : '';
   const modelCounts = spec.modelCounts ? `,\n  modelCounts: ${formatValue(spec.modelCounts, 2)}` : '';
   const interactionChecks = spec.interactionChecks ? `,\n  interactionChecks: ${formatValue(spec.interactionChecks, 2)}` : '';
@@ -49,7 +50,7 @@ export function formatImplementationCode(spec: DemoSpec): string {
     `${rootCode},`,
     '  requiredPaths: [',
     requiredPaths,
-    `  ]${anchorChecks}${modelCounts}${interactionChecks},`,
+    `  ]${projectionPaths}${anchorChecks}${modelCounts}${interactionChecks},`,
     '};',
     '',
     'const scene = createSceneFromSpec(' + toIdentifier(spec.id) + ');',
@@ -80,6 +81,7 @@ function formatTreeMeta(node: DesignNode): string {
     if (node.shape) chunks.push(`shape=${node.shape}`);
     if (node.interactive) chunks.push(`interactive=${node.interactive}`);
   }
+  if (node.kind === 'model' && node.referenceShape) chunks.push(`reference=${node.referenceShape.kind}`);
   if (node.transform) chunks.push(`transform=${formatTransformInline(node.transform)}`);
   if (node.anchors) chunks.push(`anchors=${Object.keys(node.anchors).join(',')}`);
   return chunks.length > 0 ? ` ${chunks.join(' ')}` : '';
@@ -101,6 +103,7 @@ function formatModelCode(node: DesignModelNode, indent: number): string {
   if (node.modelName) lines.push(`${childPad}modelName: '${escapeString(node.modelName)}',`);
   if (node.transform) lines.push(`${childPad}transform: ${formatValue(transformObject(node.transform), indent + 2)},`);
   if (node.anchors) lines.push(`${childPad}anchors: ${formatAnchorMap(node.anchors, indent + 2)},`);
+  if (node.referenceShape) lines.push(`${childPad}referenceShape: ${formatValue(node.referenceShape, indent + 2)},`);
   lines.push(`${childPad}children: [`);
   for (const child of node.children) {
     lines.push(`${formatNodeCode(child, indent + 4)},`);
