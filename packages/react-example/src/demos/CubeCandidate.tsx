@@ -123,8 +123,13 @@ function nodeFaceStyle(
       placeItems: 'center',
       overflow: 'visible',
       pointerEvents: interactive ? 'auto' : undefined,
+      ...(designNode?.kind !== 'model' && designNode?.shape === 'circle' ? { borderRadius: '50%' } : undefined),
       ...(node.id === 'controller-hit' ? { background: 'transparent' } : undefined),
     };
+  }
+
+  if (node.primitive?.kind === 'plane' && designNode?.kind !== 'model' && designNode?.shape === 'circle') {
+    return { borderRadius: '50%' };
   }
 
   if (node.id.includes('Button')) {

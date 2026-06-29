@@ -10,8 +10,9 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
-import { createSceneFromSpec } from './sceneFactory';
+import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
+import type { DesignNode, DesignPrimitiveNode } from './spec';
 
 export function ThreeReference({ spec }: { spec: DemoSpec }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     camera.lookAt(0, 0, 0);
 
     const root = createSceneFromSpec(spec);
+    const designNodes = new Map(flattenDesignNodes(spec.root).map(({ path, node }) => [path, node]));
     const rootPivot = new THREE.Group();
     rootPivot.matrixAutoUpdate = false;
     rootPivot.matrix.copy(cssMatrix(
@@ -41,7 +43,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     ));
     scene.add(rootPivot);
 
-    addSceneNode(rootPivot, root);
+    addSceneNode(rootPivot, root, designNodes);
 
     renderer.render(scene, camera);
     rootPivot.updateMatrixWorld(true);
@@ -52,8 +54,9 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
   return <div ref={hostRef} data-reference-canvas data-design-spec={spec.id} style={panelStyle} />;
 }
 
-function addSceneNode(parent: THREE.Object3D, node: SceneNode, parentPath?: string) {
+function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<string, DesignNode>, parentPath?: string) {
   const path = parentPath ? `${parentPath}/${node.id}` : node.id;
+  const designNode = designNodes.get(path);
   const group = new THREE.Group();
   group.name = node.id;
   group.userData.cube3dPath = path;
@@ -63,11 +66,11 @@ function addSceneNode(parent: THREE.Object3D, node: SceneNode, parentPath?: stri
   parent.add(group);
 
   if (node.primitive) {
-    addPrimitive(group, node.primitive);
+    addPrimitive(group, node.primitive, designNode?.kind === 'model' ? undefined : designNode);
   }
 
   for (const child of node.children ?? []) {
-    addSceneNode(group, child, path);
+    addSceneNode(group, child, designNodes, path);
   }
 
   addAnchorMarkers(group, node);
@@ -121,7 +124,7 @@ function projectPrimitiveBounds(object: THREE.Object3D, primitive: Primitive, ca
   };
 }
 
-function addPrimitive(group: THREE.Group, primitive: Primitive) {
+function addPrimitive(group: THREE.Group, primitive: Primitive, designNode?: DesignPrimitiveNode) {
   if (primitive.kind === 'box') {
     const geometry = new THREE.BoxGeometry(primitive.size.x, primitive.size.y, primitive.size.z);
     const material = materialFor(primitive.material);
@@ -135,16 +138,18 @@ function addPrimitive(group: THREE.Group, primitive: Primitive) {
   if (primitive.kind === 'extrude') {
     const faces = getPrimitiveFaces(primitive);
     for (const face of faces) {
-      addPlaneFace(group, primitive, face);
+      addPlaneFace(group, primitive, face, designNode);
     }
     return;
   }
 
-  addPlaneFace(group, primitive, getPrimitiveFaces(primitive)[0]);
+  addPlaneFace(group, primitive, getPrimitiveFaces(primitive)[0], designNode);
 }
 
-function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescriptor) {
-  const geometry = new THREE.PlaneGeometry(face.size.x, face.size.y);
+function addPlaneFace(group: THREE.Group, primitive: Primitive, face: FaceDescriptor, designNode?: DesignPrimitiveNode) {
+  const geometry = designNode?.shape === 'circle'
+    ? new THREE.CircleGeometry(face.size.x / 2, 48)
+    : new THREE.PlaneGeometry(face.size.x, face.size.y);
   const material = materialFor(face.material);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(face.transform.position.x, face.transform.position.y, face.transform.position.z);

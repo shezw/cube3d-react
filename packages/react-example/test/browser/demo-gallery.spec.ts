@@ -131,11 +131,22 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectFaceBackgroundNotTransparent(page, 'interaction-html/controller');
     await expectFaceBackgroundNotTransparent(page, 'interaction-html/html-sprite');
   }
+  if (demo.id === 'cylinder-8') {
+    await expect(page.locator('[data-cube3d-path^="cylinder-8/cylinder/side"]')).toHaveCount(8);
+    await expectCircleFace(page, 'cylinder-8/cylinder/topCircle');
+    await expectCircleFace(page, 'cylinder-8/cylinder/bottomCircle');
+    await expectFaceBackgroundNotTransparent(page, 'cylinder-8/cylinder/side0');
+  }
 }
 
 async function expectFaceBackgroundNotTransparent(page: Page, path: string) {
   const background = await page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`).first().evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(background, `${path} face background should keep its material color`).not.toBe('rgba(0, 0, 0, 0)');
+}
+
+async function expectCircleFace(page: Page, path: string) {
+  const borderRadius = await page.locator(`[data-cube3d-path="${path}"] [data-cube3d-face]`).first().evaluate((element) => getComputedStyle(element).borderRadius);
+  expect(borderRadius, `${path} should render as a circular face`).toContain('50%');
 }
 
 async function assertProjectedGeometry(page: Page, demo: DemoSpec, testInfo: TestInfo) {

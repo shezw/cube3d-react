@@ -9,6 +9,7 @@
 
 export type DemoId =
   | 'primitive-lab'
+  | 'cylinder-8'
   | 'transform-room'
   | 'anchor-assembly'
   | 'nested-model'
@@ -43,6 +44,7 @@ export type DesignPrimitiveNode = {
   layers?: number;
   depth?: number;
   label?: string;
+  shape?: 'circle';
   interactive?: 'cube-face' | 'controller-button' | 'sprite-button';
 };
 
@@ -95,6 +97,9 @@ const controller: Rgba = [101, 102, 154, 1];
 const darkController: Rgba = [62, 64, 108, 1];
 const cream: Rgba = [238, 222, 198, 1];
 const hat: Rgba = [244, 234, 216, 1];
+const cylinderBlue: Rgba = [80, 178, 216, 1];
+const cylinderTop: Rgba = [114, 212, 236, 1];
+const cylinderBottom: Rgba = [47, 128, 176, 1];
 
 const controllerNode: DesignModelNode = {
   id: 'controller',
@@ -204,6 +209,23 @@ const islandNode: DesignModelNode = {
   ],
 };
 
+const cylinderNode: DesignModelNode = {
+  id: 'cylinder',
+  kind: 'model',
+  modelName: 'cylinder-8-panel',
+  children: [
+    plane('topCircle', [96, 96], cylinderTop, {
+      transform: { position: [72, 18, 72], rotation: [90, 0, 0] },
+      shape: 'circle',
+    }),
+    plane('bottomCircle', [96, 96], cylinderBottom, {
+      transform: { position: [72, 122, 72], rotation: [90, 0, 0] },
+      shape: 'circle',
+    }),
+    ...cylinderSidePanels(120, 88, 72, 48, 104, 8),
+  ],
+};
+
 export const demoSpecs: DemoSpec[] = [
   {
     id: 'primitive-lab',
@@ -222,6 +244,35 @@ export const demoSpecs: DemoSpec[] = [
       ],
     },
     requiredPaths: ['primitive-lab/box', 'primitive-lab/plane', 'primitive-lab/sprite', 'primitive-lab/extrude'],
+  },
+  {
+    id: 'cylinder-8',
+    title: 'Cylinder 8 Panels',
+    capability: 'cylinder assembled from two circles and eight rectangular panels',
+    maxDiffRatio: 0.18,
+    root: {
+      id: 'cylinder-8',
+      kind: 'model',
+      modelName: 'cylinder-8',
+      children: [
+        cylinderNode,
+        box('scaleBlock', [34, 34, 40], [233, 120, 163, 1], { transform: { position: [226, 116, 28] } }),
+      ],
+    },
+    requiredPaths: [
+      'cylinder-8/cylinder/topCircle',
+      'cylinder-8/cylinder/bottomCircle',
+      'cylinder-8/cylinder/side0',
+      'cylinder-8/cylinder/side1',
+      'cylinder-8/cylinder/side2',
+      'cylinder-8/cylinder/side3',
+      'cylinder-8/cylinder/side4',
+      'cylinder-8/cylinder/side5',
+      'cylinder-8/cylinder/side6',
+      'cylinder-8/cylinder/side7',
+      'cylinder-8/scaleBlock',
+    ],
+    modelCounts: { 'cylinder-8': 1, 'cylinder-8-panel': 1 },
   },
   {
     id: 'transform-room',
@@ -420,4 +471,28 @@ function extrude(
   options: Omit<Partial<DesignPrimitiveNode>, 'id' | 'kind' | 'size' | 'color'> = {},
 ): DesignPrimitiveNode {
   return { id, kind: 'extrude', size, color, ...options };
+}
+
+function cylinderSidePanels(
+  axisX: number,
+  axisY: number,
+  axisZ: number,
+  radius: number,
+  height: number,
+  segments: number,
+): DesignPrimitiveNode[] {
+  const panelWidth = Math.round((2 * Math.PI * radius) / segments);
+  return Array.from({ length: segments }, (_, index) => {
+    const angle = (index / segments) * 360;
+    const radians = (angle / 180) * Math.PI;
+    const centerX = axisX + Math.sin(radians) * radius;
+    const centerZ = axisZ + Math.cos(radians) * radius;
+    const shade = index % 2 === 0 ? 0 : -18;
+    return plane(`side${index}`, [panelWidth, height], [cylinderBlue[0] + shade, cylinderBlue[1] + shade, cylinderBlue[2] + shade, 1], {
+      transform: {
+        position: [Math.round(centerX - panelWidth / 2), Math.round(axisY - height / 2), Math.round(centerZ)],
+        rotation: [0, angle, 0],
+      },
+    });
+  });
 }
