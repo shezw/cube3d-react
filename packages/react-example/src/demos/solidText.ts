@@ -103,7 +103,9 @@ export function createTypefaceSolidTextNode(id: string, options: SolidTextOption
   const topColor = options.topColor ?? [246, 213, 98, 1];
   const bottomColor = options.bottomColor ?? [118, 75, 48, 1];
   const sideColor = options.sideColor ?? [186, 118, 62, 1];
-  const glyphs = parseSolidTextGlyphs(options.text, font.typeface, options.fontSize);
+  const glyphs = parseSolidTextGlyphs(options.text, font.typeface, options.fontSize, {
+    curveSegments: font.solidCurveSegments,
+  });
 
   let topFaces = 0;
   let bottomFaces = 0;
@@ -157,9 +159,15 @@ export function createTypefaceSolidTextNode(id: string, options: SolidTextOption
   };
 }
 
-export function parseSolidTextGlyphs(text: string, typeface: TypefaceJson, fontSize: number): ParsedSolidTextGlyph[] {
+export function parseSolidTextGlyphs(
+  text: string,
+  typeface: TypefaceJson,
+  fontSize: number,
+  options: { curveSegments?: number } = {},
+): ParsedSolidTextGlyph[] {
   const resolution = typeface.resolution ?? 1000;
   const scale = fontSize / resolution;
+  const curveSegments = Math.max(1, Math.round(options.curveSegments ?? 8));
   const parsed: ParsedSolidTextGlyph[] = [];
   let cursor = 0;
 
@@ -171,7 +179,7 @@ export function parseSolidTextGlyphs(text: string, typeface: TypefaceJson, fontS
     }
 
     const pathCommands = parseGlyphPathCommands(glyph);
-    const rawContours = buildContours(pathCommands, scale, cursor);
+    const rawContours = buildContours(pathCommands, scale, cursor, curveSegments);
     const contours = classifyContours(rawContours);
 
     if (contours.length > 0) {
@@ -309,7 +317,7 @@ function createGlyphFaceNodes(
   return nodes;
 }
 
-function buildContours(commands: SolidTextPathCommand[], scale: number, cursor: number) {
+function buildContours(commands: SolidTextPathCommand[], scale: number, cursor: number, curveSegments: number) {
   const contours: Array<{ points: Point[]; sourceCurveSegments: number }> = [];
   let current: Point | undefined;
   let contourStart: Point | undefined;
@@ -349,8 +357,8 @@ function buildContours(commands: SolidTextPathCommand[], scale: number, cursor: 
     if (command.type === 'quadraticCurveTo') {
       const control = toPoint(command.control);
       const end = toPoint(command.point);
-      for (let step = 1; step <= 8; step += 1) {
-        currentContour.push(quadraticPoint(current, control, end, step / 8));
+      for (let step = 1; step <= curveSegments; step += 1) {
+        currentContour.push(quadraticPoint(current, control, end, step / curveSegments));
       }
       sourceCurveSegments += 1;
       current = end;
@@ -361,8 +369,9 @@ function buildContours(commands: SolidTextPathCommand[], scale: number, cursor: 
       const controlA = toPoint(command.controlA);
       const controlB = toPoint(command.controlB);
       const end = toPoint(command.point);
-      for (let step = 1; step <= 12; step += 1) {
-        currentContour.push(cubicPoint(current, controlA, controlB, end, step / 12));
+      const cubicSegments = Math.max(1, Math.ceil(curveSegments * 1.5));
+      for (let step = 1; step <= cubicSegments; step += 1) {
+        currentContour.push(cubicPoint(current, controlA, controlB, end, step / cubicSegments));
       }
       sourceCurveSegments += 1;
       current = end;

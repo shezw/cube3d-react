@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { findWorldNode, resolveScene } from '@cube3d/core';
 import { demoSpecs } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
-import { parseGlyphPathCommands, parseSolidTextGlyphs } from '../../src/demos/solidText';
+import { createTypefaceSolidTextNode, parseGlyphPathCommands, parseSolidTextGlyphs } from '../../src/demos/solidText';
 import { defaultTypefaceFontId, getTypefaceFont, typefaceFontOptions } from '../../src/demos/typefaceFonts';
 
 const expectedFonts = [
@@ -131,6 +131,30 @@ describe('solid text model', () => {
     expect(odd?.solidTextEdge?.color).toEqual(odd?.color);
   });
 
+  it('treats VT323 as a curve-heavy font with lower Cube3D curve sampling', () => {
+    const font = getTypefaceFont('vt323');
+    expect(font.solidCurveSegments).toBe(1);
+
+    const defaultGlyphs = parseSolidTextGlyphs('012', font.typeface, 58);
+    const sampledGlyphs = parseSolidTextGlyphs('012', font.typeface, 58, { curveSegments: font.solidCurveSegments });
+    const defaultEdges = edgeCount(defaultGlyphs);
+    const sampledEdges = edgeCount(sampledGlyphs);
+    const sourceCurves = sampledGlyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.sourceCurveSegments, 0), 0);
+
+    expect(sourceCurves).toBeGreaterThan(80);
+    expect(sampledEdges).toBeLessThan(defaultEdges / 3);
+
+    const model = createTypefaceSolidTextNode('vt323Word', {
+      text: '012',
+      fontId: 'vt323',
+      fontSize: 58,
+      depth: 18,
+    });
+    expect(model.solidText?.fontId).toBe('vt323');
+    expect(model.solidText?.glyphs.reduce((sum, glyph) => sum + glyph.sourceCurveSegments, 0)).toBe(sourceCurves);
+    expect(model.solidText?.glyphs.reduce((sum, glyph) => sum + glyph.edgeCount, 0)).toBe(sampledEdges);
+  });
+
   it('parses glyph commands and closed contours from the actual font asset', () => {
     const font = getTypefaceFont(defaultTypefaceFontId);
     const zeroCommands = parseGlyphPathCommands(font.typeface.glyphs['0']);
@@ -188,4 +212,8 @@ function commandCoordinates(command: ReturnType<typeof parseGlyphPathCommands>[n
     command.point.y,
   ];
   return [];
+}
+
+function edgeCount(glyphs: ReturnType<typeof parseSolidTextGlyphs>) {
+  return glyphs.reduce((sum, glyph) => sum + glyph.contours.reduce((inner, contour) => inner + contour.points.length - 1, 0), 0);
 }
