@@ -506,13 +506,16 @@ export const demoSpecs: DemoSpec[] = [
     requiredPaths: [
       'anchor-orientation/positionOnlyControl/socket',
       'anchor-orientation/positionOnlyControl/plug',
-      'anchor-orientation/positionOnlyControl/rotationAxis/axis',
+      'anchor-orientation/positionOnlyControl/socketDirectionGuide/normal',
+      'anchor-orientation/positionOnlyControl/plugDirectionGuide/normal',
       'anchor-orientation/orientationAttach/socket',
       'anchor-orientation/orientationAttach/plug',
-      'anchor-orientation/orientationAttach/rotationAxis/axis',
+      'anchor-orientation/orientationAttach/socketDirectionGuide/normal',
+      'anchor-orientation/orientationAttach/plugDirectionGuide/normal',
       'anchor-orientation/orientationWithParentTransform/socket',
       'anchor-orientation/orientationWithParentTransform/plug',
-      'anchor-orientation/orientationWithParentTransform/rotationAxis/axis',
+      'anchor-orientation/orientationWithParentTransform/socketDirectionGuide/normal',
+      'anchor-orientation/orientationWithParentTransform/plugDirectionGuide/normal',
     ],
     projectionPaths: [
       'anchor-orientation/positionOnlyControl/socket',
@@ -887,7 +890,6 @@ function createAnchorOrientationCase(
       plane('guidePlane', [164, 92], [118, 150, 255, 0.26], {
         transform: { position: [-24, -30, 6] },
       }),
-      createRotationAxis('rotationAxis', [0, 0, 0], 72),
       box('socket', [64, 30, 24], socketColor, {
         transform: { position: [0, 0, 14], rotation: [0, 0, socketRotation], pivot: [32, 15, 0] },
         anchors: {
@@ -912,9 +914,33 @@ function createAnchorOrientationCase(
         },
         faceColors: { top: [255, 193, 101, 1], front: [204, 125, 52, 1] },
       }),
+      createAnchorDirectionGuide('socketDirectionGuide', [88, 236, 164, 1]),
+      createAnchorDirectionGuide('plugDirectionGuide', [147, 255, 189, 0.92]),
     ],
     attachments: [
       { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: init.attachmentMode },
+      { childId: 'socketDirectionGuide', childAnchor: 'origin', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
+      { childId: 'plugDirectionGuide', childAnchor: 'origin', parentId: 'plug', parentAnchor: 'in', mode: 'position-orientation' },
+    ],
+  };
+}
+
+function createAnchorDirectionGuide(id: string, color: Rgba): DesignModelNode {
+  return {
+    id,
+    kind: 'model',
+    modelName: 'anchor-direction-guide',
+    anchors: { origin: [0, 0, 0] },
+    children: [
+      box('point', [5, 5, 5], [255, 255, 255, 0.95], {
+        transform: { position: [-2.5, -2.5, -2.5] },
+      }),
+      box('normal', [62, 2, 2], color, {
+        transform: { position: [0, -1, -1] },
+      }),
+      box('tip', [6, 6, 6], color, {
+        transform: { position: [59, -3, -3] },
+      }),
     ],
   };
 }
@@ -962,10 +988,9 @@ function createPivotOriginCase(
     children: [
       box('base', [124, 34, 10], [75, 91, 150, 1], { transform: { position: [16, 66, 2] } }),
       plane('pivotPlane', [132, 84], [118, 150, 255, 0.26], { transform: { position: [22, 10, 14] } }),
-      box('pivotGuideX', [132, 6, 6], [235, 90, 105, 1], { transform: { position: [doorPosition[0] + init.pivot[0] - 66, doorPosition[1] + init.pivot[1] - 3, doorPosition[2] + 24] } }),
-      box('pivotGuideY', [6, 104, 6], [92, 222, 140, 1], { transform: { position: [doorPosition[0] + init.pivot[0] - 3, doorPosition[1] + init.pivot[1] - 52, doorPosition[2] + 25] } }),
+      box('pivotGuideX', [132, 3, 3], [235, 90, 105, 1], { transform: { position: [doorPosition[0] + init.pivot[0] - 66, doorPosition[1] + init.pivot[1] - 1.5, doorPosition[2] + 24] } }),
+      box('pivotGuideY', [3, 104, 3], [92, 222, 140, 1], { transform: { position: [doorPosition[0] + init.pivot[0] - 1.5, doorPosition[1] + init.pivot[1] - 52, doorPosition[2] + 25] } }),
       createRotationAxis('rotationAxis', [doorPosition[0] + init.pivot[0], doorPosition[1] + init.pivot[1], doorPosition[2] - 18], 92),
-      box('pivotAxis', [2, 2, 84], [244, 213, 98, 0.72], { transform: { position: [pivotPinPosition[0] + 4, pivotPinPosition[1] + 4, doorPosition[2] - 18] } }),
       box('pivotPin', [7, 7, 7], [244, 213, 98, 1], { transform: { position: [pivotPinPosition[0] + 1.5, pivotPinPosition[1] + 1.5, pivotPinPosition[2] + 18] } }),
       box('door', [92, 48, 16], doorColor, {
         transform: { position: doorPosition, rotation: [0, 0, doorRotation], pivot: init.pivot },
@@ -1003,8 +1028,8 @@ function createBoundsStackCase(
     children: [
       createRotationAxis('rotationAxis', [0, 0, 0], 68),
       plane('boundsFootprint', [104, 100], [80, 200, 216, 0.28], { transform: { position: [-24, -50, 1] } }),
-      box('localXAxis', [118, 7, 7], [235, 90, 105, 1], { transform: { position: [-24, 5, 5] } }),
-      box('localYAxis', [7, 112, 7], [92, 222, 140, 1], { transform: { position: [25, -50, 6] } }),
+      box('localXAxis', [118, 3, 3], [235, 90, 105, 1], { transform: { position: [-24, 7, 5] } }),
+      box('localYAxis', [3, 112, 3], [92, 222, 140, 1], { transform: { position: [27, -50, 6] } }),
       box('base', [56, 42, 32], baseColor, {
         faceColors: { top: lighten(baseColor, 18), front: darken(baseColor, 28) },
       }),

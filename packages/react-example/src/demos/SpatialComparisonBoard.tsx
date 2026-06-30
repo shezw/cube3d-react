@@ -133,7 +133,7 @@ function createBeforeState(spec: DemoSpec) {
   const next = cloneSpec(spec);
   if (spec.id === 'anchor-orientation') {
     const caseNode = selectedCaseModel(next);
-    caseNode.attachments = [];
+    caseNode.attachments = caseNode.attachments?.filter((item) => item.childId !== 'plug') ?? [];
     return presentSpatialSpec(next);
   }
   if (spec.id === 'pivot-origin') {
@@ -271,7 +271,9 @@ function evaluateAnchorCase(spec: DemoSpec, option: DemoCaseOption) {
   const normalAngle = angleBetweenVec3(socket.normal!, plug.normal!);
   const shouldAlignOrientation = option.id !== 'positionOnlyControl';
   const passed = positionDistance < 0.001 && (shouldAlignOrientation ? normalAngle < 0.001 : normalAngle > 0.1);
-  const orientationText = shouldAlignOrientation ? `normal angle ${normalAngle.toFixed(4)} rad` : `normal intentionally differs by ${normalAngle.toFixed(2)} rad`;
+  const orientationText = shouldAlignOrientation
+    ? `anchor direction guide angle ${normalAngle.toFixed(4)}deg`
+    : `anchor direction guides intentionally differ by ${normalAngle.toFixed(2)}deg`;
   return {
     passed,
     message: `Expected anchor positions to coincide; measured ${positionDistance.toFixed(3)}px, ${orientationText}.`,

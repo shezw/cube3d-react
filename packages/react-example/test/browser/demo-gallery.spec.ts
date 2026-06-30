@@ -181,21 +181,19 @@ async function assertOnlyCardCasePaths(card: Locator, demo: DemoSpec, selectedCa
 }
 
 async function assertCaseGuides(card: Locator, demoId: string, caseId: string, expectedCount: number) {
-  const rotationAxisPath = demoId === 'world-bounds' && caseId === 'nestedScaledStack'
-    ? 'world-bounds/nestedScaledStack/innerStack/rotationAxis'
-    : `${demoId}/${caseId}/rotationAxis`;
-  await expect(card.locator(`[data-cube3d-path="${rotationAxisPath}/axis"]`)).toHaveCount(expectedCount);
-
   if (demoId === 'anchor-orientation') {
     await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/guidePlane"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socketDirectionGuide/normal"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plugDirectionGuide/normal"]`)).toHaveCount(expectedCount);
   }
   if (demoId === 'pivot-origin') {
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/rotationAxis/axis"]`)).toHaveCount(expectedCount);
     await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPlane"]`)).toHaveCount(expectedCount);
-    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotAxis"]`)).toHaveCount(expectedCount);
     await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPin"]`)).toHaveCount(expectedCount);
   }
   if (demoId === 'world-bounds') {
     const stackPath = caseId === 'nestedScaledStack' ? 'world-bounds/nestedScaledStack/innerStack' : `world-bounds/${caseId}`;
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/rotationAxis/axis"]`)).toHaveCount(expectedCount);
     await expect(card.locator(`[data-cube3d-path="${stackPath}/boundsFootprint"]`)).toHaveCount(expectedCount);
     await expect(card.locator(`[data-cube3d-path="${stackPath}/localXAxis"]`)).toHaveCount(expectedCount);
     await expect(card.locator(`[data-cube3d-path="${stackPath}/localYAxis"]`)).toHaveCount(expectedCount);
@@ -474,8 +472,18 @@ function assertControlledAnchorComparison(demo: DemoSpec) {
   expect(plug.color, `${caseId} plug color should match template`).toEqual(templatePlug.color);
   expect(plug.transform, `${caseId} plug transform should match template`).toEqual(templatePlug.transform);
   expect(plug.anchors, `${caseId} plug anchors should match template`).toEqual(templatePlug.anchors);
-  expect(caseNode.attachments).toHaveLength(1);
-  expect(caseNode.attachments?.[0].mode).toBe(caseId === 'positionOnlyControl' ? 'position' : 'position-orientation');
+  const plugAttachment = caseNode.attachments?.find((attachment) => attachment.childId === 'plug');
+  expect(plugAttachment).toEqual({
+    childId: 'plug',
+    childAnchor: 'in',
+    parentId: 'socket',
+    parentAnchor: 'out',
+    mode: caseId === 'positionOnlyControl' ? 'position' : 'position-orientation',
+  });
+  expect(caseNode.attachments).toEqual(expect.arrayContaining([
+    { childId: 'socketDirectionGuide', childAnchor: 'origin', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
+    { childId: 'plugDirectionGuide', childAnchor: 'origin', parentId: 'plug', parentAnchor: 'in', mode: 'position-orientation' },
+  ]));
   expect(stripLayoutPosition(caseNode.transform)).toEqual(caseId === 'orientationWithParentTransform' ? {
     rotation: [0, 0, 28],
     scale: [1.12, 1.12, 1.12],
