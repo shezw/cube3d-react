@@ -180,6 +180,8 @@ export type DemoSpec = {
   anchorChecks?: AnchorCheckSpec[];
   modelCounts?: Record<string, number>;
   interactionChecks?: Array<'cube-face' | 'controller-button' | 'sprite-button'>;
+  interactionTargets?: string[];
+  feedbackTargets?: string[];
   cameraFocus?: DemoCameraFocus;
   cameraScroll?: {
     initial: DemoCameraState;
@@ -832,6 +834,8 @@ export const demoSpecs: DemoSpec[] = [
     requiredPaths: ['interactive-object/base', 'interactive-object/infoCube', 'interactive-object/switchBlock', 'interactive-object/htmlPanel'],
     projectionPaths: ['interactive-object/base', 'interactive-object/infoCube', 'interactive-object/switchBlock', 'interactive-object/htmlPanel'],
     modelCounts: { 'interactive-object': 1 },
+    interactionTargets: ['interactive-object/switchBlock'],
+    feedbackTargets: ['interactive-object/switchBlock'],
     contentBindings: [
       { path: 'interactive-object/infoCube', title: 'Info cube', body: 'Selected from semantic cube path.', camera: { position: [-20, 12, 0], zoom: 1.18, origin: '50% 50%' } },
       { path: 'interactive-object/switchBlock', title: 'Switch block', body: 'Selected from semantic switch path.', camera: { position: [-70, 20, 0], zoom: 1.24, origin: '50% 50%' } },
@@ -866,6 +870,7 @@ export const demoSpecs: DemoSpec[] = [
       characterPath: 'character-reaction/character',
       reactionState: 'excited',
     },
+    feedbackTargets: ['character-reaction/reactionProp'],
     contentBindings: [
       { path: 'character-reaction/reactionProp', title: 'Reaction prop', body: 'Clicking the prop changes scene state and character feedback.', characterState: 'excited' },
     ],
@@ -889,6 +894,8 @@ export const demoSpecs: DemoSpec[] = [
     requiredPaths: ['content-callout/base', 'content-callout/featureA', 'content-callout/featureB', 'content-callout/featureC'],
     projectionPaths: ['content-callout/base', 'content-callout/featureA', 'content-callout/featureB', 'content-callout/featureC'],
     modelCounts: { 'content-callout': 1 },
+    interactionTargets: ['content-callout/featureB'],
+    feedbackTargets: ['content-callout/featureB'],
     contentBindings: [
       { path: 'content-callout/featureA', title: 'Feature A', body: 'Callout target is computed from object faces.' },
       { path: 'content-callout/featureB', title: 'Feature B', body: 'Camera and panel can respond to the same selected path.', camera: { position: [-58, 20, 0], zoom: 1.28, origin: '50% 50%' } },
@@ -951,6 +958,8 @@ export const demoSpecs: DemoSpec[] = [
       { path: 'interactive-cover-scene/interactiveProp', title: 'Interactive prop', body: 'This prop drives camera, callout and character reaction.', camera: { position: [-98, 38, 0], zoom: 1.34, origin: '50% 50%' }, characterState: 'excited' },
       { path: 'interactive-cover-scene/visualWord', title: 'Layered word', body: 'Cover scene can mix previous verified visual assets.', camera: { position: [-48, -6, 0], zoom: 1.18, origin: '50% 50%' } },
     ],
+    interactionTargets: ['interactive-cover-scene/interactiveProp'],
+    feedbackTargets: ['interactive-cover-scene/interactiveProp'],
     characterReaction: {
       triggerPath: 'interactive-cover-scene/interactiveProp',
       characterPath: 'interactive-cover-scene/character',

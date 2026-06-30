@@ -62,18 +62,9 @@ function CandidateContent({
   const [feedbackPath, setFeedbackPath] = useState('none');
   const [activeSection, setActiveSection] = useState(spec.cameraScroll?.sections[0]?.id ?? '');
   const [characterState, setCharacterState] = useState('idle');
-  const interactivePaths = useMemo(
-    () => {
-      const paths = [
-        spec.cameraFocus?.interactivePath,
-        ...(spec.cameraScroll?.sections.map((section) => section.path) ?? []),
-        ...(spec.contentBindings?.map((binding) => binding.path) ?? []),
-        spec.characterReaction?.triggerPath,
-      ].filter(Boolean) as string[];
-      return paths.length > 0 ? Array.from(new Set(paths)) : undefined;
-    },
-    [spec],
-  );
+  const interactivePaths = useMemo(() => semanticInteractionPaths(spec), [spec]);
+  const feedbackTargets = useMemo(() => new Set(spec.feedbackTargets ?? []), [spec]);
+  const hasSemanticInteraction = interactivePaths.length > 0;
   const selectedBinding = spec.contentBindings?.find((binding) => binding.path === activePath);
   const nodeFaceContent = useMemo(
     () => ({
@@ -145,9 +136,10 @@ function CandidateContent({
         model={model}
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
-        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { feedbackPath, hoveredPath, characterState }, spec)}
-        interactivePaths={interactivePaths}
-        onNodeClick={(event) => {
+        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { feedbackPath, hoveredPath, feedbackTargets, characterState }, spec)}
+        interactivePaths={hasSemanticInteraction ? interactivePaths : undefined}
+        onNodeClick={hasSemanticInteraction ? (event) => {
+          setFeedbackPath(feedbackTargets.has(event.path) ? event.path : 'none');
           if (spec.cameraFocus && event.path === spec.cameraFocus.interactivePath) {
             setActivePath(event.path);
             void camera.moveTo(toCameraState(spec.cameraFocus.target), { duration: 0 });
@@ -156,16 +148,15 @@ function CandidateContent({
           const binding = spec.contentBindings?.find((item) => item.path === event.path);
           if (binding) {
             setActivePath(event.path);
-            setFeedbackPath(event.path);
             if (binding.camera) void camera.moveTo(toCameraState(binding.camera), { duration: 0 });
             if (binding.characterState) setCharacterState(binding.characterState);
           }
           if (spec.characterReaction && event.path === spec.characterReaction.triggerPath) {
             setCharacterState(spec.characterReaction.reactionState);
           }
-        }}
-        onNodePointerEnter={(event) => setHoveredPath(event.path)}
-        onNodePointerLeave={() => setHoveredPath(undefined)}
+        } : undefined}
+        onNodePointerEnter={hasSemanticInteraction ? (event) => setHoveredPath(feedbackTargets.has(event.path) ? event.path : undefined) : undefined}
+        onNodePointerLeave={hasSemanticInteraction ? () => setHoveredPath(undefined) : undefined}
       />
       {spec.cameraScroll ? (
         <CameraScrollRail
@@ -284,21 +275,30 @@ function nodeFaceStyle(
 function nodeTransformOverride(
   node: SceneNode,
   path: string,
-  state: { feedbackPath: string; hoveredPath?: string; characterState: string },
+  state: { feedbackPath: string; hoveredPath?: string; feedbackTargets: Set<string>; characterState: string },
   spec: DemoSpec,
 ) {
   if (spec.characterReaction && path === spec.characterReaction.characterPath && state.characterState === spec.characterReaction.reactionState) {
     return { position: { z: node.transform.position.z + 12 } };
   }
-  if (path === state.feedbackPath && (spec.contentBindings || spec.callout || spec.interactiveCover)) {
+  if (path === state.feedbackPath && state.feedbackTargets.has(path)) {
     const lift = resolveMotionPreset('hoverLift', { active: true });
     return { position: { z: node.transform.position.z + (lift.position?.z ?? 0) } };
   }
-  if (path === state.hoveredPath) {
+  if (path === state.hoveredPath && state.feedbackTargets.has(path)) {
     const lift = resolveMotionPreset('hoverLift', { progress: 0.55 });
     return { position: { z: node.transform.position.z + (lift.position?.z ?? 0) } };
   }
   return undefined;
+}
+
+function semanticInteractionPaths(spec: DemoSpec) {
+  const paths = [
+    spec.cameraFocus?.interactivePath,
+    ...(spec.interactionTargets ?? []),
+    spec.characterReaction?.triggerPath,
+  ].filter(Boolean) as string[];
+  return Array.from(new Set(paths));
 }
 
 function CameraScrollRail({
