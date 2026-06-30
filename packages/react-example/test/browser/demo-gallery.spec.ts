@@ -13,7 +13,7 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
-import { demoSpecs, type DemoId, type DemoSpec } from '../../src/demos/registry';
+import { demoSpecs, getDemoCases, getDemoSpec, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';
 import { solidTextDemoCharactersPerRow, solidTextDemoCharacterSet, solidTextDemoDepth, solidTextDemoFontSize, solidTextDemoRows } from '../../src/demos/solidText';
@@ -33,15 +33,15 @@ test.describe('WebGL reference demo gallery', () => {
     }
   });
 
-  for (const demo of demoSpecs) {
-    test(`${demo.id} matches shared-spec reference and structural contract`, async ({ page }, testInfo) => {
-      await page.goto(`/?demo=${demo.id}`);
+  for (const demo of expandedDemoSpecs()) {
+    test(`${demo.id}${demo.selectedCase ? `/${demo.selectedCase}` : ''} matches shared-spec reference and structural contract`, async ({ page }, testInfo) => {
+      await page.goto(`/?demo=${demo.id}${demo.selectedCase ? `&case=${demo.selectedCase}` : ''}`);
       await expect(page.locator('[data-validation-panel="reference"]')).toBeVisible();
       await expect(page.locator('[data-validation-panel="candidate"]')).toBeVisible();
       await assertSharedSpecProvenance(page, demo);
 
       await assertCandidateVisualRegressions(page, demo);
-      await comparePanels(page, testInfo, demo.id);
+      await comparePanels(page, testInfo, demo);
       await assertDemoStructure(page, demo);
       await assertProjectedGeometry(page, demo, testInfo);
       await assertDemoDetails(page, demo);
@@ -49,14 +49,26 @@ test.describe('WebGL reference demo gallery', () => {
   }
 });
 
+function expandedDemoSpecs() {
+  return demoSpecs.flatMap((demo) => {
+    const cases = getDemoCases(demo.id);
+    return cases.length > 0 ? cases.map((item) => getDemoSpec(demo.id, item.id)) : [getDemoSpec(demo.id)];
+  });
+}
+
 async function assertSharedSpecProvenance(page: Page, demo: DemoSpec) {
   await expect(page.locator('[data-reference-canvas]')).toHaveAttribute('data-design-spec', demo.id);
   await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-source', 'shared-demo-spec');
   await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-spec', demo.id);
+  await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-case', demo.selectedCase ?? '');
   await expect(page.locator('[data-candidate-stage]')).toHaveAttribute('data-design-node-count', String(flattenDesignNodes(demo.root).length));
+  if (demo.selectedCase) {
+    await expect(page.locator('[data-reference-canvas]')).toHaveAttribute('data-design-case', demo.selectedCase);
+    await expect(page.locator('[data-demo-case-select]')).toHaveValue(demo.selectedCase);
+  }
 }
 
-async function comparePanels(page: Page, testInfo: TestInfo, demoId: DemoId) {
+async function comparePanels(page: Page, testInfo: TestInfo, demo: DemoSpec) {
   const reference = await panelScreenshot(page.locator('[data-validation-panel="reference"]'));
   const candidate = await panelScreenshot(page.locator('[data-validation-panel="candidate"]'));
   const referencePng = PNG.sync.read(reference);
@@ -70,7 +82,7 @@ async function comparePanels(page: Page, testInfo: TestInfo, demoId: DemoId) {
     includeAA: false,
   });
   const diffRatio = diffPixels / (referencePng.width * referencePng.height);
-  const prefix = `${demoId}-${Math.round(diffRatio * 10000)}`;
+  const prefix = `${demo.id}${demo.selectedCase ? `-${demo.selectedCase}` : ''}-${Math.round(diffRatio * 10000)}`;
   const referencePath = testInfo.outputPath(`${prefix}-reference.png`);
   const candidatePath = testInfo.outputPath(`${prefix}-candidate.png`);
   const diffPath = testInfo.outputPath(`${prefix}-diff.png`);
@@ -79,7 +91,7 @@ async function comparePanels(page: Page, testInfo: TestInfo, demoId: DemoId) {
   writeFileSync(referencePath, reference);
   writeFileSync(candidatePath, candidate);
   writeFileSync(diffPath, PNG.sync.write(diff));
-  writeFileSync(reportPath, JSON.stringify({ demoId, diffRatio, diffPixels, width: referencePng.width, height: referencePng.height }, null, 2));
+  writeFileSync(reportPath, JSON.stringify({ demoId: demo.id, caseId: demo.selectedCase, diffRatio, diffPixels, width: referencePng.width, height: referencePng.height }, null, 2));
   await testInfo.attach('reference', { path: referencePath, contentType: 'image/png' });
   await testInfo.attach('candidate', { path: candidatePath, contentType: 'image/png' });
   await testInfo.attach('diff', { path: diffPath, contentType: 'image/png' });
@@ -180,31 +192,33 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectTrueCylinderReference(page, cylinderPaths);
   }
   if (demo.id === 'anchor-orientation') {
+    await expectOnlySelectedCase(page, demo);
     assertControlledAnchorComparison(demo);
     assertAnchorOrientationSpec(demo);
-    for (const caseId of anchorOrientationCaseIds) {
-      await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socket"] [data-cube3d-anchor="out"]`)).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
-      await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plug"] [data-cube3d-anchor="in"]`)).toHaveAttribute('data-cube3d-anchor-tangent', '0,1,0');
-      await expectProjectedAnchorDistance(page, `anchor-orientation/${caseId}/socket`, 'out', `anchor-orientation/${caseId}/plug`, 'in', 2);
-    }
+    const caseId = requireSelectedCase(demo);
+    await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socket"] [data-cube3d-anchor="out"]`)).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
+    await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plug"] [data-cube3d-anchor="in"]`)).toHaveAttribute('data-cube3d-anchor-tangent', '0,1,0');
+    await expectProjectedAnchorDistance(page, `anchor-orientation/${caseId}/socket`, 'out', `anchor-orientation/${caseId}/plug`, 'in', 2);
   }
   if (demo.id === 'pivot-origin') {
+    await expectOnlySelectedCase(page, demo);
     assertControlledPivotComparison(demo);
     assertPivotSpec(demo);
-    for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
-      const path = `pivot-origin/${caseId}/door`;
-      await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveAttribute('data-cube3d-pivot', pivot.join(','));
-      await expect(page.locator(`[data-cube3d-path="${path}"] > [data-cube3d-pivot-marker]`)).toHaveCount(1);
-      const transformOrigin = await page.locator(`[data-cube3d-path="${path}"]`).evaluate((element) => getComputedStyle(element).transformOrigin);
-      expect(transformOrigin, `${path} CSS transform-origin`).toContain(`${pivot[0]}px ${pivot[1]}px`);
-      await expectProjectedAnchorDistance(page, path, 'handle', `pivot-origin/${caseId}/handle`, 'mount', 2);
-    }
+    const caseId = requireSelectedCase(demo);
+    const pivot = pivotCasePivots[caseId];
+    const path = `pivot-origin/${caseId}/door`;
+    await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveAttribute('data-cube3d-pivot', pivot.join(','));
+    await expect(page.locator(`[data-cube3d-path="${path}"] > [data-cube3d-pivot-marker]`)).toHaveCount(1);
+    const transformOrigin = await page.locator(`[data-cube3d-path="${path}"]`).evaluate((element) => getComputedStyle(element).transformOrigin);
+    expect(transformOrigin, `${path} CSS transform-origin`).toContain(`${pivot[0]}px ${pivot[1]}px`);
+    await expectProjectedAnchorDistance(page, path, 'handle', `pivot-origin/${caseId}/handle`, 'mount', 2);
   }
   if (demo.id === 'world-bounds') {
+    await expectOnlySelectedCase(page, demo);
     assertControlledWorldBoundsComparison(demo);
     assertWorldBoundsSpec(demo);
-    await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(3);
-    await expect(page.locator('[data-cube3d-model="bounds-nested-case"]')).toHaveCount(1);
+    await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(1);
+    await expect(page.locator('[data-cube3d-model="bounds-nested-case"]')).toHaveCount(demo.selectedCase === 'nestedScaledStack' ? 1 : 0);
   }
 }
 
@@ -314,137 +328,147 @@ async function expectSolidTextReferenceFonts(page: Page, expectedRows: Array<{ p
   }
 }
 
-const anchorOrientationCaseIds = ['positionOnlyControl', 'orientationAttach', 'orientationWithParentTransform'] as const;
 const anchorOrientationAlignedCaseIds = ['orientationAttach', 'orientationWithParentTransform'] as const;
 const pivotCasePivots: Record<string, [number, number, number]> = {
   centerPivotCase: [46, 24, 0],
   leftHingeCase: [0, 24, 0],
   topHingeCase: [46, 0, 0],
 };
-const worldBoundsCasePaths = [
-  'world-bounds/translatedStack',
-  'world-bounds/rotatedStack',
-  'world-bounds/nestedScaledStack',
-  'world-bounds/nestedScaledStack/innerStack',
-] as const;
+async function expectOnlySelectedCase(page: Page, demo: DemoSpec) {
+  const selectedCase = requireSelectedCase(demo);
+  const cases = getDemoCases(demo.id);
+  for (const item of cases) {
+    const selector = `[data-cube3d-path="${demo.root.id}/${item.id}"], [data-cube3d-path^="${demo.root.id}/${item.id}/"]`;
+    if (item.id === selectedCase) {
+      await expect(page.locator(`[data-cube3d-path="${demo.root.id}/${item.id}"]`), `${demo.id}/${item.id} should be the only rendered case`).toHaveCount(1);
+    } else {
+      await expect(page.locator(selector), `${demo.id}/${item.id} should not be rendered in this image`).toHaveCount(0);
+    }
+  }
+}
+
+function requireSelectedCase(demo: DemoSpec) {
+  if (!demo.selectedCase) throw new Error(`${demo.id} expected a selected case.`);
+  return demo.selectedCase;
+}
+
+function rawDemoSpec(demo: DemoSpec) {
+  const spec = demoSpecs.find((candidate) => candidate.id === demo.id);
+  if (!spec) throw new Error(`Missing raw spec for ${demo.id}`);
+  return spec;
+}
 
 function assertControlledAnchorComparison(demo: DemoSpec) {
-  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
-  const templateSocket = primitiveAt(nodes, 'anchor-orientation/positionOnlyControl/socket');
-  const templatePlug = primitiveAt(nodes, 'anchor-orientation/positionOnlyControl/plug');
+  const caseId = requireSelectedCase(demo);
+  const nodes = nodeMap(demo);
+  const baseNodes = nodeMap(rawDemoSpec(demo));
+  const templateSocket = primitiveAt(baseNodes, 'anchor-orientation/positionOnlyControl/socket');
+  const templatePlug = primitiveAt(baseNodes, 'anchor-orientation/positionOnlyControl/plug');
+  const caseNode = modelAt(nodes, `anchor-orientation/${caseId}`);
+  const socket = primitiveAt(nodes, `anchor-orientation/${caseId}/socket`);
+  const plug = primitiveAt(nodes, `anchor-orientation/${caseId}/plug`);
 
-  for (const caseId of anchorOrientationCaseIds) {
-    const caseNode = modelAt(nodes, `anchor-orientation/${caseId}`);
-    const socket = primitiveAt(nodes, `anchor-orientation/${caseId}/socket`);
-    const plug = primitiveAt(nodes, `anchor-orientation/${caseId}/plug`);
-    expect(socket.size, `${caseId} socket size should match template`).toEqual(templateSocket.size);
-    expect(socket.color, `${caseId} socket color should match template`).toEqual(templateSocket.color);
-    expect(socket.transform, `${caseId} socket transform should match template`).toEqual(templateSocket.transform);
-    expect(socket.anchors, `${caseId} socket anchors should match template`).toEqual(templateSocket.anchors);
-    expect(plug.size, `${caseId} plug size should match template`).toEqual(templatePlug.size);
-    expect(plug.color, `${caseId} plug color should match template`).toEqual(templatePlug.color);
-    expect(plug.transform, `${caseId} plug transform should match template`).toEqual(templatePlug.transform);
-    expect(plug.anchors, `${caseId} plug anchors should match template`).toEqual(templatePlug.anchors);
-    expect(caseNode.attachments).toHaveLength(1);
-  }
-
-  expect(modelAt(nodes, 'anchor-orientation/positionOnlyControl').attachments?.[0].mode).toBe('position');
-  expect(modelAt(nodes, 'anchor-orientation/orientationAttach').attachments?.[0].mode).toBe('position-orientation');
-  expect(modelAt(nodes, 'anchor-orientation/orientationWithParentTransform').attachments?.[0].mode).toBe('position-orientation');
-  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/positionOnlyControl').transform)).toEqual({});
-  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/orientationAttach').transform)).toEqual({});
-  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/orientationWithParentTransform').transform)).toEqual({
+  expect(demo.root.children).toHaveLength(1);
+  expect(demo.root.children[0].id).toBe(caseId);
+  expect(socket.size, `${caseId} socket size should match template`).toEqual(templateSocket.size);
+  expect(socket.color, `${caseId} socket color should match template`).toEqual(templateSocket.color);
+  expect(socket.transform, `${caseId} socket transform should match template`).toEqual(templateSocket.transform);
+  expect(socket.anchors, `${caseId} socket anchors should match template`).toEqual(templateSocket.anchors);
+  expect(plug.size, `${caseId} plug size should match template`).toEqual(templatePlug.size);
+  expect(plug.color, `${caseId} plug color should match template`).toEqual(templatePlug.color);
+  expect(plug.transform, `${caseId} plug transform should match template`).toEqual(templatePlug.transform);
+  expect(plug.anchors, `${caseId} plug anchors should match template`).toEqual(templatePlug.anchors);
+  expect(caseNode.attachments).toHaveLength(1);
+  expect(caseNode.attachments?.[0].mode).toBe(caseId === 'positionOnlyControl' ? 'position' : 'position-orientation');
+  expect(stripLayoutPosition(caseNode.transform)).toEqual(caseId === 'orientationWithParentTransform' ? {
     rotation: [0, 0, 28],
     scale: [1.12, 1.12, 1.12],
-  });
+  } : {});
 }
 
 function assertControlledPivotComparison(demo: DemoSpec) {
-  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
-  const templateDoor = primitiveAt(nodes, 'pivot-origin/centerPivotCase/door');
-  const templateBase = primitiveAt(nodes, 'pivot-origin/centerPivotCase/base');
-  const templateHandle = primitiveAt(nodes, 'pivot-origin/centerPivotCase/handle');
+  const caseId = requireSelectedCase(demo);
+  const nodes = nodeMap(demo);
+  const baseNodes = nodeMap(rawDemoSpec(demo));
+  const templateDoor = primitiveAt(baseNodes, 'pivot-origin/centerPivotCase/door');
+  const templateBase = primitiveAt(baseNodes, 'pivot-origin/centerPivotCase/base');
+  const templateHandle = primitiveAt(baseNodes, 'pivot-origin/centerPivotCase/handle');
+  const caseNode = modelAt(nodes, `pivot-origin/${caseId}`);
+  const door = primitiveAt(nodes, `pivot-origin/${caseId}/door`);
+  const base = primitiveAt(nodes, `pivot-origin/${caseId}/base`);
+  const handle = primitiveAt(nodes, `pivot-origin/${caseId}/handle`);
 
-  for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
-    const caseNode = modelAt(nodes, `pivot-origin/${caseId}`);
-    const door = primitiveAt(nodes, `pivot-origin/${caseId}/door`);
-    const base = primitiveAt(nodes, `pivot-origin/${caseId}/base`);
-    const handle = primitiveAt(nodes, `pivot-origin/${caseId}/handle`);
-    expect(base.size, `${caseId} base size should match template`).toEqual(templateBase.size);
-    expect(base.color, `${caseId} base color should match template`).toEqual(templateBase.color);
-    expect(handle.size, `${caseId} handle size should match template`).toEqual(templateHandle.size);
-    expect(handle.anchors, `${caseId} handle anchors should match template`).toEqual(templateHandle.anchors);
-    expect(door.size, `${caseId} door size should match template`).toEqual(templateDoor.size);
-    expect(door.color, `${caseId} door color should match template`).toEqual(templateDoor.color);
-    expect({ ...door.transform, pivot: undefined }, `${caseId} door transform except pivot`).toEqual({ ...templateDoor.transform, pivot: undefined });
-    expect(door.transform?.pivot, `${caseId} only pivot should differ`).toEqual(pivot);
-    expect(caseNode.attachments).toEqual([{ childId: 'handle', childAnchor: 'mount', parentId: 'door', parentAnchor: 'handle' }]);
-  }
+  expect(demo.root.children).toHaveLength(1);
+  expect(demo.root.children[0].id).toBe(caseId);
+  expect(base.size, `${caseId} base size should match template`).toEqual(templateBase.size);
+  expect(base.color, `${caseId} base color should match template`).toEqual(templateBase.color);
+  expect(handle.size, `${caseId} handle size should match template`).toEqual(templateHandle.size);
+  expect(handle.anchors, `${caseId} handle anchors should match template`).toEqual(templateHandle.anchors);
+  expect(door.size, `${caseId} door size should match template`).toEqual(templateDoor.size);
+  expect(door.color, `${caseId} door color should match template`).toEqual(templateDoor.color);
+  expect({ ...door.transform, pivot: undefined }, `${caseId} door transform except pivot`).toEqual({ ...templateDoor.transform, pivot: undefined });
+  expect(door.transform?.pivot, `${caseId} only pivot should differ`).toEqual(pivotCasePivots[caseId]);
+  expect(caseNode.attachments).toEqual([{ childId: 'handle', childAnchor: 'mount', parentId: 'door', parentAnchor: 'handle' }]);
 }
 
 function assertControlledWorldBoundsComparison(demo: DemoSpec) {
-  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
-  const stackPaths = [
-    'world-bounds/translatedStack',
-    'world-bounds/rotatedStack',
-    'world-bounds/nestedScaledStack/innerStack',
-  ];
-  const templateBase = primitiveAt(nodes, `${stackPaths[0]}/base`);
-  const templateTop = primitiveAt(nodes, `${stackPaths[0]}/top`);
+  const caseId = requireSelectedCase(demo);
+  const nodes = nodeMap(demo);
+  const baseNodes = nodeMap(rawDemoSpec(demo));
+  const selectedStackPath = worldBoundsStackPath(caseId);
+  const templateBase = primitiveAt(baseNodes, 'world-bounds/translatedStack/base');
+  const templateTop = primitiveAt(baseNodes, 'world-bounds/translatedStack/top');
+  const base = primitiveAt(nodes, `${selectedStackPath}/base`);
+  const top = primitiveAt(nodes, `${selectedStackPath}/top`);
 
-  for (const path of stackPaths) {
-    const base = primitiveAt(nodes, `${path}/base`);
-    const top = primitiveAt(nodes, `${path}/top`);
-    expect(base.size, `${path} base size should match template`).toEqual(templateBase.size);
-    expect(base.color, `${path} base color should match template`).toEqual(templateBase.color);
-    expect(base.faceColors, `${path} base face colors should match template`).toEqual(templateBase.faceColors);
-    expect(top.size, `${path} top size should match template`).toEqual(templateTop.size);
-    expect(top.color, `${path} top color should match template`).toEqual(templateTop.color);
-    expect(top.transform, `${path} top local transform should match template`).toEqual(templateTop.transform);
+  expect(demo.root.children.map((child) => child.id)).toEqual(['floor', caseId]);
+  expect(base.size, `${selectedStackPath} base size should match template`).toEqual(templateBase.size);
+  expect(base.color, `${selectedStackPath} base color should match template`).toEqual(templateBase.color);
+  expect(base.faceColors, `${selectedStackPath} base face colors should match template`).toEqual(templateBase.faceColors);
+  expect(top.size, `${selectedStackPath} top size should match template`).toEqual(templateTop.size);
+  expect(top.color, `${selectedStackPath} top color should match template`).toEqual(templateTop.color);
+  expect(top.transform, `${selectedStackPath} top local transform should match template`).toEqual(templateTop.transform);
+
+  if (caseId === 'translatedStack') expect(modelAt(nodes, 'world-bounds/translatedStack').transform).toEqual({ position: [44, 82, 12], rotation: [0, 0, 0], scale: [1, 1, 1] });
+  if (caseId === 'rotatedStack') expect(modelAt(nodes, 'world-bounds/rotatedStack').transform).toEqual({ position: [146, 76, 12], rotation: [0, 0, -24], scale: [1, 1, 1] });
+  if (caseId === 'nestedScaledStack') {
+    expect(modelAt(nodes, 'world-bounds/nestedScaledStack').transform).toEqual({ position: [220, 154, 12], rotation: [0, 0, 0], scale: [1.18, 1.18, 1.18] });
+    expect(modelAt(nodes, 'world-bounds/nestedScaledStack/innerStack').transform).toEqual({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] });
   }
-
-  expect(modelAt(nodes, 'world-bounds/translatedStack').transform).toEqual({ position: [44, 82, 12], rotation: [0, 0, 0], scale: [1, 1, 1] });
-  expect(modelAt(nodes, 'world-bounds/rotatedStack').transform).toEqual({ position: [146, 76, 12], rotation: [0, 0, -24], scale: [1, 1, 1] });
-  expect(modelAt(nodes, 'world-bounds/nestedScaledStack').transform).toEqual({ position: [220, 154, 12], rotation: [0, 0, 0], scale: [1.18, 1.18, 1.18] });
-  expect(modelAt(nodes, 'world-bounds/nestedScaledStack/innerStack').transform).toEqual({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] });
 }
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {
+  const caseId = requireSelectedCase(demo);
   const world = resolveScene(createSceneFromSpec(demo));
-  for (const caseId of anchorOrientationCaseIds) {
-    const socket = findWorldNode(world, `anchor-orientation/${caseId}/socket`)?.worldAnchors.out;
-    const plug = findWorldNode(world, `anchor-orientation/${caseId}/plug`)?.worldAnchors.in;
-    expect(socket, `${caseId} socket anchor should resolve`).toBeTruthy();
-    expect(plug, `${caseId} plug anchor should resolve`).toBeTruthy();
-    expect(plug!.position.x, `${caseId} x`).toBeCloseTo(socket!.position.x, 3);
-    expect(plug!.position.y, `${caseId} y`).toBeCloseTo(socket!.position.y, 3);
-    expect(plug!.position.z, `${caseId} z`).toBeCloseTo(socket!.position.z, 3);
-  }
-  for (const caseId of anchorOrientationAlignedCaseIds) {
-    const socket = findWorldNode(world, `anchor-orientation/${caseId}/socket`)?.worldAnchors.out;
-    const plug = findWorldNode(world, `anchor-orientation/${caseId}/plug`)?.worldAnchors.in;
+  const socket = findWorldNode(world, `anchor-orientation/${caseId}/socket`)?.worldAnchors.out;
+  const plug = findWorldNode(world, `anchor-orientation/${caseId}/plug`)?.worldAnchors.in;
+  expect(socket, `${caseId} socket anchor should resolve`).toBeTruthy();
+  expect(plug, `${caseId} plug anchor should resolve`).toBeTruthy();
+  expect(plug!.position.x, `${caseId} x`).toBeCloseTo(socket!.position.x, 3);
+  expect(plug!.position.y, `${caseId} y`).toBeCloseTo(socket!.position.y, 3);
+  expect(plug!.position.z, `${caseId} z`).toBeCloseTo(socket!.position.z, 3);
+  if (anchorOrientationAlignedCaseIds.includes(caseId as (typeof anchorOrientationAlignedCaseIds)[number])) {
     expect(angleBetweenVec3(socket!.normal!, plug!.normal!), `${caseId} normal alignment`).toBeLessThan(0.001);
     expect(angleBetweenVec3(socket!.tangent!, plug!.tangent!), `${caseId} tangent alignment`).toBeLessThan(0.001);
+  } else {
+    expect(angleBetweenVec3(socket!.normal!, plug!.normal!), 'position-only control should not align normal').toBeGreaterThan(0.1);
   }
-  const controlSocket = findWorldNode(world, 'anchor-orientation/positionOnlyControl/socket')?.worldAnchors.out;
-  const controlPlug = findWorldNode(world, 'anchor-orientation/positionOnlyControl/plug')?.worldAnchors.in;
-  expect(angleBetweenVec3(controlSocket!.normal!, controlPlug!.normal!), 'position-only control should not align normal').toBeGreaterThan(0.1);
 }
 
 function assertPivotSpec(demo: DemoSpec) {
+  const caseId = requireSelectedCase(demo);
   const world = resolveScene(createSceneFromSpec(demo));
-  for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
-    const door = findWorldNode(world, `pivot-origin/${caseId}/door`);
-    const handle = findWorldNode(world, `pivot-origin/${caseId}/handle`);
-    const doorHandle = door?.worldAnchors.handle;
-    const handleMount = handle?.worldAnchors.mount;
-    expect(door?.node.transform.pivot, `${caseId} pivot`).toEqual({ x: pivot[0], y: pivot[1], z: pivot[2] });
-    expect(door?.worldBounds?.max.x, `${caseId} bounds x`).toBeGreaterThan(door?.worldBounds?.min.x ?? 0);
-    expect(door?.worldBounds?.max.y, `${caseId} bounds y`).toBeGreaterThan(door?.worldBounds?.min.y ?? 0);
-    expect(handleMount?.position.x, `${caseId} handle x`).toBeCloseTo(doorHandle!.position.x, 3);
-    expect(handleMount?.position.y, `${caseId} handle y`).toBeCloseTo(doorHandle!.position.y, 3);
-    expect(handleMount?.position.z, `${caseId} handle z`).toBeCloseTo(doorHandle!.position.z, 3);
-  }
+  const pivot = pivotCasePivots[caseId];
+  const door = findWorldNode(world, `pivot-origin/${caseId}/door`);
+  const handle = findWorldNode(world, `pivot-origin/${caseId}/handle`);
+  const doorHandle = door?.worldAnchors.handle;
+  const handleMount = handle?.worldAnchors.mount;
+  expect(door?.node.transform.pivot, `${caseId} pivot`).toEqual({ x: pivot[0], y: pivot[1], z: pivot[2] });
+  expect(door?.worldBounds?.max.x, `${caseId} bounds x`).toBeGreaterThan(door?.worldBounds?.min.x ?? 0);
+  expect(door?.worldBounds?.max.y, `${caseId} bounds y`).toBeGreaterThan(door?.worldBounds?.min.y ?? 0);
+  expect(handleMount?.position.x, `${caseId} handle x`).toBeCloseTo(doorHandle!.position.x, 3);
+  expect(handleMount?.position.y, `${caseId} handle y`).toBeCloseTo(doorHandle!.position.y, 3);
+  expect(handleMount?.position.z, `${caseId} handle z`).toBeCloseTo(doorHandle!.position.z, 3);
 }
 
 function assertWorldBoundsSpec(demo: DemoSpec) {
@@ -456,18 +480,22 @@ function assertWorldBoundsSpec(demo: DemoSpec) {
     expectFiniteBounds(path, row!.bounds!);
   }
   const root = byPath.get('world-bounds');
-  for (const path of worldBoundsCasePaths) {
+  for (const path of demo.requiredPaths.filter((candidate) => candidate !== 'world-bounds/floor')) {
     const item = byPath.get(path);
+    if (!item?.bounds) continue;
     expect(root?.size?.x, `root should cover ${path} width`).toBeGreaterThanOrEqual(item?.size?.x ?? Number.POSITIVE_INFINITY);
     expect(root?.size?.y, `root should cover ${path} height`).toBeGreaterThanOrEqual(item?.size?.y ?? Number.POSITIVE_INFINITY);
     expect(root?.size?.z, `root should cover ${path} depth`).toBeGreaterThanOrEqual(item?.size?.z ?? Number.POSITIVE_INFINITY);
     expect(rootContains(root?.bounds, item?.bounds), `root bounds should contain ${path}`).toBe(true);
   }
-  const translated = byPath.get('world-bounds/translatedStack');
-  const rotated = byPath.get('world-bounds/rotatedStack');
-  const nested = byPath.get('world-bounds/nestedScaledStack');
-  expect(translated?.center?.x).toBeLessThan(rotated?.center?.x ?? 0);
-  expect(rotated?.center?.x).toBeLessThan(nested?.center?.x ?? 0);
+}
+
+function nodeMap(demo: DemoSpec) {
+  return new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
+}
+
+function worldBoundsStackPath(caseId: string) {
+  return caseId === 'nestedScaledStack' ? 'world-bounds/nestedScaledStack/innerStack' : `world-bounds/${caseId}`;
 }
 
 function primitiveAt(nodes: Map<string, ReturnType<typeof flattenDesignNodes>[number]['node']>, path: string) {

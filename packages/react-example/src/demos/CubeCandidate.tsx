@@ -23,6 +23,7 @@ export function CubeCandidate({ spec }: { spec: DemoSpec }) {
       data-candidate-stage
       data-design-source="shared-demo-spec"
       data-design-spec={spec.id}
+      data-design-case={spec.selectedCase ?? ''}
       data-design-node-count={designNodeCount}
       style={candidateShellStyle}
     >

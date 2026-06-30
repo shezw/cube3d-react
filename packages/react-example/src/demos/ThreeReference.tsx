@@ -42,6 +42,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
       renderer.setSize(stageSize.width, stageSize.height);
       renderer.setClearColor(0x20232f, 1);
       renderer.domElement.dataset.designSpec = spec.id;
+      renderer.domElement.dataset.designCase = spec.selectedCase ?? '';
       host.replaceChildren(renderer.domElement);
 
       const scene = new THREE.Scene();
@@ -76,7 +77,7 @@ export function ThreeReference({ spec }: { spec: DemoSpec }) {
     };
   }, [spec]);
 
-  return <div ref={hostRef} data-reference-canvas data-design-spec={spec.id} style={panelStyle} />;
+  return <div ref={hostRef} data-reference-canvas data-design-spec={spec.id} data-design-case={spec.selectedCase ?? ''} style={panelStyle} />;
 }
 
 function addSceneNode(parent: THREE.Object3D, node: SceneNode, designNodes: Map<string, DesignNode>, textRuntime?: TextReferenceRuntime, parentPath?: string) {

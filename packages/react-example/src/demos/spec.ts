@@ -127,11 +127,18 @@ export type AnchorCheckSpec = {
   maxDistance: number;
 };
 
+export type DemoCaseOption = {
+  id: string;
+  label: string;
+};
+
 export type DemoSpec = {
   id: DemoId;
   title: string;
   capability: string;
   maxDiffRatio: number;
+  selectedCase?: string;
+  cases?: DemoCaseOption[];
   root: DesignModelNode;
   requiredPaths: string[];
   projectionPaths?: string[];
@@ -295,6 +302,12 @@ const anchorOrientationCases: DesignModelNode[] = [
   }),
 ];
 
+const anchorOrientationCaseOptions: DemoCaseOption[] = [
+  { id: 'positionOnlyControl', label: 'Position-only control' },
+  { id: 'orientationAttach', label: 'Position + orientation' },
+  { id: 'orientationWithParentTransform', label: 'Orientation under parent transform' },
+];
+
 const pivotOriginCases: DesignModelNode[] = [
   createPivotOriginCase('centerPivotCase', {
     position: [26, 56, 4],
@@ -308,6 +321,12 @@ const pivotOriginCases: DesignModelNode[] = [
     position: [96, 178, 8],
     pivot: [46, 0, 0],
   }),
+];
+
+const pivotOriginCaseOptions: DemoCaseOption[] = [
+  { id: 'centerPivotCase', label: 'Center pivot' },
+  { id: 'leftHingeCase', label: 'Left hinge pivot' },
+  { id: 'topHingeCase', label: 'Top hinge pivot' },
 ];
 
 const worldBoundsCases: DesignModelNode[] = [
@@ -334,6 +353,12 @@ const worldBoundsCases: DesignModelNode[] = [
       }),
     ],
   },
+];
+
+const worldBoundsCaseOptions: DemoCaseOption[] = [
+  { id: 'translatedStack', label: 'Translated stack' },
+  { id: 'rotatedStack', label: 'Rotated stack' },
+  { id: 'nestedScaledStack', label: 'Nested scaled stack' },
 ];
 
 export const demoSpecs: DemoSpec[] = [
@@ -470,6 +495,7 @@ export const demoSpecs: DemoSpec[] = [
     title: 'Anchor Orientation',
     capability: 'anchor position, normal and tangent alignment across rotated subcases',
     maxDiffRatio: 0.14,
+    cases: anchorOrientationCaseOptions,
     root: {
       id: 'anchor-orientation',
       kind: 'model',
@@ -510,6 +536,7 @@ export const demoSpecs: DemoSpec[] = [
     title: 'Pivot Origin',
     capability: 'explicit pivot/origin comparison across rotation axes',
     maxDiffRatio: 0.14,
+    cases: pivotOriginCaseOptions,
     root: {
       id: 'pivot-origin',
       kind: 'model',
@@ -542,6 +569,7 @@ export const demoSpecs: DemoSpec[] = [
     title: 'World Bounds',
     capability: 'resolved world bounds and spatial object query across nested transforms',
     maxDiffRatio: 0.14,
+    cases: worldBoundsCaseOptions,
     root: {
       id: 'world-bounds',
       kind: 'model',
@@ -731,8 +759,67 @@ export const demoSpecs: DemoSpec[] = [
   },
 ];
 
-export function getDemoSpec(id: string | null): DemoSpec {
-  return demoSpecs.find((demo) => demo.id === id) ?? demoSpecs[0];
+export function getDemoSpec(id: string | null, caseId?: string | null): DemoSpec {
+  const spec = demoSpecs.find((demo) => demo.id === id) ?? demoSpecs[0];
+  return resolveDemoCase(spec, caseId);
+}
+
+export function getDemoCases(id: string | null): DemoCaseOption[] {
+  return (demoSpecs.find((demo) => demo.id === id) ?? demoSpecs[0]).cases ?? [];
+}
+
+function resolveDemoCase(spec: DemoSpec, caseId?: string | null): DemoSpec {
+  if (!spec.cases || spec.cases.length === 0) return spec;
+  const selectedCase = spec.cases.some((item) => item.id === caseId) ? caseId! : spec.cases[0].id;
+  if (spec.id === 'anchor-orientation') return singleModelCaseSpec(spec, selectedCase);
+  if (spec.id === 'pivot-origin') return singleModelCaseSpec(spec, selectedCase);
+  if (spec.id === 'world-bounds') return worldBoundsCaseSpec(spec, selectedCase);
+  return { ...spec, selectedCase };
+}
+
+function singleModelCaseSpec(spec: DemoSpec, selectedCase: string): DemoSpec {
+  const selected = spec.root.children.find((child) => child.kind === 'model' && child.id === selectedCase);
+  if (!selected) return { ...spec, selectedCase };
+  return {
+    ...spec,
+    selectedCase,
+    root: {
+      ...spec.root,
+      children: [selected],
+    },
+    requiredPaths: spec.requiredPaths.filter((path) => path.startsWith(`${spec.root.id}/${selectedCase}/`)),
+    projectionPaths: spec.projectionPaths?.filter((path) => path.startsWith(`${spec.root.id}/${selectedCase}/`)),
+    anchorChecks: spec.anchorChecks?.filter((check) => check.aPath.startsWith(`${spec.root.id}/${selectedCase}/`) || check.bPath.startsWith(`${spec.root.id}/${selectedCase}/`)),
+    modelCounts: caseModelCounts(spec, selectedCase),
+  };
+}
+
+function worldBoundsCaseSpec(spec: DemoSpec, selectedCase: string): DemoSpec {
+  const floor = spec.root.children.find((child) => child.id === 'floor');
+  const selected = spec.root.children.find((child) => child.kind === 'model' && child.id === selectedCase);
+  if (!floor || !selected) return { ...spec, selectedCase };
+  return {
+    ...spec,
+    selectedCase,
+    root: {
+      ...spec.root,
+      children: [floor, selected],
+    },
+    requiredPaths: spec.requiredPaths.filter((path) => path === 'world-bounds/floor' || path.startsWith(`world-bounds/${selectedCase}/`) || path === `world-bounds/${selectedCase}`),
+    projectionPaths: spec.projectionPaths?.filter((path) => path === 'world-bounds/floor' || path === `world-bounds/${selectedCase}`),
+    modelCounts: caseModelCounts(spec, selectedCase),
+  };
+}
+
+function caseModelCounts(spec: DemoSpec, selectedCase: string): Record<string, number> {
+  if (spec.id === 'anchor-orientation') return { 'anchor-orientation': 1, 'anchor-orientation-case': 1 };
+  if (spec.id === 'pivot-origin') return { 'pivot-origin': 1, 'pivot-origin-case': 1 };
+  if (spec.id === 'world-bounds') {
+    return selectedCase === 'nestedScaledStack'
+      ? { 'world-bounds': 1, 'bounds-stack': 1, 'bounds-nested-case': 1 }
+      : { 'world-bounds': 1, 'bounds-stack': 1 };
+  }
+  return spec.modelCounts ?? {};
 }
 
 function box(

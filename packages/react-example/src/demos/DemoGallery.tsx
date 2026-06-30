@@ -10,24 +10,39 @@
 import React, { useMemo, useState } from 'react';
 import { CubeCandidate } from './CubeCandidate';
 import { DemoDetails } from './DemoDetails';
-import { demoDefinitions, getDemoSpec, type DemoSpec } from './registry';
+import { demoDefinitions, getDemoCases, getDemoSpec, type DemoCaseOption, type DemoSpec } from './registry';
 import { createSolidTextDemoNodes } from './solidText';
 import { ThreeReference } from './ThreeReference';
 import { defaultTypefaceFontId, type TypefaceFontId, typefaceFontOptions } from './typefaceFonts';
 
 export function DemoGallery() {
-  const initialDemo = useMemo(() => getDemoSpec(new URLSearchParams(window.location.search).get('demo')), []);
+  const initialParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const initialDemo = useMemo(() => getDemoSpec(initialParams.get('demo'), initialParams.get('case')), [initialParams]);
   const [selectedId, setSelectedId] = useState(initialDemo.id);
+  const [selectedCaseId, setSelectedCaseId] = useState(initialDemo.selectedCase);
   const [selectedFontId, setSelectedFontId] = useState<TypefaceFontId>(defaultTypefaceFontId);
-  const selected = getDemoSpec(selectedId);
+  const selected = getDemoSpec(selectedId, selectedCaseId);
+  const selectedCases = getDemoCases(selectedId);
   const selectedSpec = useMemo(() => withSolidTextFont(selected, selectedFontId), [selected, selectedFontId]);
 
   const handleSelectDemo = (id: string) => {
     const next = getDemoSpec(id);
     const url = new URL(window.location.href);
     url.searchParams.set('demo', next.id);
+    if (next.selectedCase) url.searchParams.set('case', next.selectedCase);
+    else url.searchParams.delete('case');
     window.history.replaceState(null, '', url);
     setSelectedId(next.id);
+    setSelectedCaseId(next.selectedCase);
+  };
+
+  const handleSelectCase = (caseId: string) => {
+    const next = getDemoSpec(selected.id, caseId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('demo', next.id);
+    url.searchParams.set('case', next.selectedCase ?? caseId);
+    window.history.replaceState(null, '', url);
+    setSelectedCaseId(next.selectedCase);
   };
 
   return (
@@ -79,7 +94,10 @@ export function DemoGallery() {
                 </select>
               </label>
             ) : null}
-            <code style={codeStyle}>?demo={selected.id}</code>
+            {selectedCases.length > 0 ? (
+              <CaseSelect cases={selectedCases} selectedCase={selected.selectedCase} onSelect={handleSelectCase} />
+            ) : null}
+            <code style={codeStyle}>?demo={selected.id}{selected.selectedCase ? `&case=${selected.selectedCase}` : ''}</code>
           </div>
         </header>
 
@@ -101,6 +119,24 @@ export function DemoGallery() {
         <DemoDetails spec={selectedSpec} />
       </section>
     </main>
+  );
+}
+
+function CaseSelect({ cases, selectedCase, onSelect }: { cases: DemoCaseOption[]; selectedCase?: string; onSelect: (caseId: string) => void }) {
+  return (
+    <label style={fontSelectLabelStyle}>
+      <span>Case</span>
+      <select
+        data-demo-case-select
+        value={selectedCase ?? cases[0]?.id}
+        onChange={(event) => onSelect(event.target.value)}
+        style={fontSelectStyle}
+      >
+        {cases.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 

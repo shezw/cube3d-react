@@ -7,9 +7,9 @@
     @email   : hello@shezw.com
 */
 
-import { demoSpecs, getDemoSpec, stageSize, type DemoId, type DemoSpec } from './spec';
+import { demoSpecs, getDemoCases, getDemoSpec, stageSize, type DemoCaseOption, type DemoId, type DemoSpec } from './spec';
 
-export type { DemoId, DemoSpec };
+export type { DemoCaseOption, DemoId, DemoSpec };
 
 export type DemoDefinition = Pick<DemoSpec, 'id' | 'title' | 'capability' | 'maxDiffRatio'>;
 
@@ -20,4 +20,4 @@ export const demoDefinitions: DemoDefinition[] = demoSpecs.map(({ id, title, cap
   maxDiffRatio,
 }));
 
-export { demoSpecs, getDemoSpec, stageSize };
+export { demoSpecs, getDemoCases, getDemoSpec, stageSize };
