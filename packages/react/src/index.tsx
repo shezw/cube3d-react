@@ -1,10 +1,13 @@
 import React, {
   createContext,
   forwardRef,
+  useCallback,
   useContext,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import type {
   AnimationOptions,
@@ -21,12 +24,15 @@ import type {
   Size2,
   Size3,
   Vec3,
+  ViewState,
 } from '@cube3d/core';
 import {
   boxPrimitive,
+  composeViewTransform,
   extrudePrimitive,
   getPrimitiveFaces,
   groupNode,
+  interpolateViewState,
   materialToCss,
   normalizeTransform,
   planePrimitive,
@@ -88,6 +94,147 @@ export function Scene3D({
   );
 }
 
+export type Camera3DState = {
+  position?: Partial<Vec3>;
+  rotation?: Partial<Vec3>;
+  zoom?: number;
+  origin?: string;
+};
+
+export type CameraMotionOptions = {
+  duration?: number;
+  easing?: string;
+  signal?: AbortSignal;
+};
+
+export type Camera3DMotionState = 'idle' | 'moving';
+
+export type Camera3DProps = {
+  state: Camera3DState;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+  motion?: Camera3DMotionState;
+};
+
+export function Camera3D({ state, children, className, style, motion = 'idle' }: Camera3DProps) {
+  const normalized = normalizeCamera3DState(state);
+  const transform = composeViewTransform(cameraStateToViewState(normalized));
+
+  return (
+    <div
+      data-cube3d-camera
+      data-cube3d-camera-state={cameraStateToData(normalized)}
+      data-cube3d-camera-motion={motion}
+      className={className}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        transformStyle: 'preserve-3d',
+        transformOrigin: normalized.origin,
+        transform: transformToCss(transform),
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function useCamera3D(initial: Camera3DState): {
+  state: Camera3DState;
+  set: (next: Camera3DState) => void;
+  moveTo: (next: Camera3DState, options?: CameraMotionOptions) => Promise<void>;
+  reset: () => void;
+} {
+  const initialRef = useRef(normalizeCamera3DState(initial));
+  const stateRef = useRef(normalizeCamera3DState(initial));
+  const activeMotionRef = useRef<{ frame: number | null; finish: () => void } | null>(null);
+  const [state, setState] = useState<Camera3DState>(stateRef.current);
+
+  const cancelActiveMotion = useCallback(() => {
+    const activeMotion = activeMotionRef.current;
+    if (!activeMotion) return;
+    if (activeMotion.frame != null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(activeMotion.frame);
+    }
+    activeMotionRef.current = null;
+    activeMotion.finish();
+  }, []);
+
+  const applyState = useCallback((next: Camera3DState) => {
+    const merged = mergeCamera3DState(stateRef.current, next);
+    stateRef.current = merged;
+    setState(merged);
+  }, []);
+
+  const set = useCallback((next: Camera3DState) => {
+    cancelActiveMotion();
+    applyState(next);
+  }, [applyState, cancelActiveMotion]);
+
+  const reset = useCallback(() => {
+    cancelActiveMotion();
+    stateRef.current = initialRef.current;
+    setState(initialRef.current);
+  }, [cancelActiveMotion]);
+
+  const moveTo = useCallback((next: Camera3DState, options: CameraMotionOptions = {}) => {
+    cancelActiveMotion();
+    const target = mergeCamera3DState(stateRef.current, next);
+    const duration = Math.max(0, options.duration ?? 500);
+    if (options.signal?.aborted || duration === 0 || prefersReducedMotion()) {
+      stateRef.current = target;
+      setState(target);
+      return Promise.resolve();
+    }
+
+    const start = stateRef.current;
+    const startView = cameraStateToViewState(start);
+    const targetView = cameraStateToViewState(target);
+    const easing = resolveCameraEasing(options.easing);
+    const startedAt = now();
+
+    return new Promise<void>((resolve) => {
+      const finish = () => resolve();
+      const abortHandler = () => {
+        cancelActiveMotion();
+        stateRef.current = target;
+        setState(target);
+      };
+      options.signal?.addEventListener('abort', abortHandler, { once: true });
+
+      const step = (timestamp: number) => {
+        const progress = Math.min(1, (timestamp - startedAt) / duration);
+        const eased = easing(progress);
+        const view = interpolateViewState(startView, targetView, eased);
+        const frameState = viewStateToCameraState(view, progress >= 1 ? target.origin : start.origin);
+        stateRef.current = frameState;
+        setState(frameState);
+        if (progress >= 1) {
+          options.signal?.removeEventListener('abort', abortHandler);
+          activeMotionRef.current = null;
+          resolve();
+          return;
+        }
+        activeMotionRef.current = {
+          frame: requestAnimationFrame(step),
+          finish,
+        };
+      };
+
+      activeMotionRef.current = {
+        frame: requestAnimationFrame(step),
+        finish,
+      };
+    });
+  }, [cancelActiveMotion]);
+
+  useEffect(() => () => cancelActiveMotion(), [cancelActiveMotion]);
+
+  return { state, set, moveTo, reset };
+}
+
 export type NodeHandle = {
   animate: (name: string, frames: Keyframes, options?: AnimationOptions) => void;
   getElement: () => HTMLDivElement | null;
@@ -110,13 +257,56 @@ export type Node3DProps = {
   className?: string;
   style?: React.CSSProperties;
   path?: string;
+} & InteractionProps;
+
+export type Cube3DEventPayload = {
+  path: string;
+  nodeId: string;
+  modelName?: string;
+  primitiveKind?: string;
+  face?: FaceDirection;
+  faceIndex?: number;
+  nativeEvent: React.MouseEvent | React.PointerEvent;
 };
 
-export function Node3D({ node, children, faceContent, nodeFaceContent, faceClassName, faceStyle, nodeFaceStyle, className, style, path }: Node3DProps) {
+export type InteractionProps = {
+  interactivePaths?: string[];
+  onNodeClick?: (event: Cube3DEventPayload) => void;
+  onNodePointerEnter?: (event: Cube3DEventPayload) => void;
+  onNodePointerLeave?: (event: Cube3DEventPayload) => void;
+  onFaceClick?: (event: Cube3DEventPayload) => void;
+};
+
+export function Node3D({
+  node,
+  children,
+  faceContent,
+  nodeFaceContent,
+  faceClassName,
+  faceStyle,
+  nodeFaceStyle,
+  className,
+  style,
+  path,
+  interactivePaths,
+  onNodeClick,
+  onNodePointerEnter,
+  onNodePointerLeave,
+  onFaceClick,
+}: Node3DProps) {
   const primitive = node.primitive;
   const faces = primitive ? getPrimitiveFaces(primitive) : [];
   const resolvedFaceContent = faceContent ?? contentForNode(nodeFaceContent?.[node.id]);
   const nodePath = path ?? node.id;
+  const interaction = {
+    interactivePaths,
+    onNodeClick,
+    onNodePointerEnter,
+    onNodePointerLeave,
+    onFaceClick,
+  };
+  const hasInteraction = hasInteractionProps(interaction);
+  const isInteractive = isInteractivePath(nodePath, interactivePaths);
 
   return (
     <div
@@ -125,7 +315,11 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
       data-cube3d-model={node.kind === 'model' ? node.modelName : undefined}
       data-cube3d-primitive={primitive?.kind}
       data-cube3d-pivot={node.transform.pivot ? vec3ToData(node.transform.pivot) : undefined}
+      data-cube3d-interactive={hasInteraction && isInteractive ? true : undefined}
       className={className}
+      onClick={hasInteraction && isInteractive && onNodeClick ? (event) => onNodeClick(createEventPayload(node, nodePath, event)) : undefined}
+      onPointerEnter={hasInteraction && isInteractive && onNodePointerEnter ? (event) => onNodePointerEnter(createEventPayload(node, nodePath, event)) : undefined}
+      onPointerLeave={hasInteraction && isInteractive && onNodePointerLeave ? (event) => onNodePointerLeave(createEventPayload(node, nodePath, event)) : undefined}
       style={{
         position: 'absolute',
         width: primitive ? `${primitiveSize(primitive).x}px` : undefined,
@@ -133,6 +327,7 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
         transformStyle: 'preserve-3d',
         transformOrigin: node.transform.pivot ? pivotToCss(node.transform.pivot) : '50% 50%',
         transform: transformToCss(node.transform),
+        pointerEvents: hasInteraction && isInteractive ? 'auto' : style?.pointerEvents,
         ...style,
       }}
     >
@@ -176,6 +371,9 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
           ...nodeFaceStyle?.(node, face, index),
         }),
         children,
+        node,
+        nodePath,
+        interaction,
       ) : null}
       {(node.children ?? []).map((child) => (
         <Node3D
@@ -186,6 +384,11 @@ export function Node3D({ node, children, faceContent, nodeFaceContent, faceClass
           faceStyle={faceStyle}
           nodeFaceContent={nodeFaceContent}
           nodeFaceStyle={nodeFaceStyle}
+          interactivePaths={interactivePaths}
+          onNodeClick={onNodeClick}
+          onNodePointerEnter={onNodePointerEnter}
+          onNodePointerLeave={onNodePointerLeave}
+          onFaceClick={onFaceClick}
         />
       ))}
       {primitive?.kind === 'extrude' ? null : children}
@@ -456,10 +659,15 @@ function renderPrimitiveFaces(
   faceClassName?: string,
   faceStyle?: React.CSSProperties | ((face: FaceDescriptor, index: number) => React.CSSProperties | undefined),
   children?: React.ReactNode,
+  node?: SceneNode,
+  nodePath?: string,
+  interaction?: InteractionProps,
 ) {
   return faces.map((face, index) => {
     const isExtrude = primitive.kind === 'extrude';
     const faceChildren = isExtrude ? faceContent?.[face.direction] ?? children : faceContent?.[face.direction];
+    const hasInteraction = interaction ? hasInteractionProps(interaction) : false;
+    const isInteractive = nodePath ? isInteractivePath(nodePath, interaction?.interactivePaths) : false;
     return (
       <div
         key={`${face.direction}-${index}`}
@@ -467,7 +675,11 @@ function renderPrimitiveFaces(
         data-cube3d-face-index={index}
         data-cube3d-layer-index={isExtrude ? index : undefined}
         data-cube3d-plane={primitive.kind === 'plane' ? true : undefined}
+        data-cube3d-interactive={hasInteraction && isInteractive ? true : undefined}
         className={faceClassName}
+        onClick={hasInteraction && isInteractive && node && nodePath && interaction?.onFaceClick
+          ? (event) => interaction.onFaceClick?.(createEventPayload(node, nodePath, event, face, index))
+          : undefined}
         style={{
           position: 'absolute',
           left: 0,
@@ -483,6 +695,7 @@ function renderPrimitiveFaces(
           transformStyle: 'preserve-3d',
           backfaceVisibility: 'visible',
           transform: `translate(-50%, -50%) ${transformToCss(face.transform)}`,
+          pointerEvents: hasInteraction ? (isInteractive ? 'auto' : 'none') : undefined,
           ...(typeof faceStyle === 'function' ? faceStyle(face, index) : faceStyle),
         }}
       >
@@ -507,6 +720,118 @@ function transformToCss(transform?: PartialTransform3D): string {
     `rotateZ(${rotation.z}deg)`,
     `scale3d(${scale.x}, ${scale.y}, ${scale.z})`,
   ].join(' ');
+}
+
+type NormalizedCamera3DState = {
+  position: Vec3;
+  rotation: Vec3;
+  zoom: number;
+  origin: string;
+};
+
+function normalizeCamera3DState(state?: Camera3DState): NormalizedCamera3DState {
+  return {
+    position: vec3FromPartial(state?.position),
+    rotation: vec3FromPartial(state?.rotation),
+    zoom: Number.isFinite(state?.zoom) && state?.zoom != null ? state.zoom : 1,
+    origin: state?.origin ?? '50% 50%',
+  };
+}
+
+function mergeCamera3DState(current: Camera3DState, next: Camera3DState): NormalizedCamera3DState {
+  const normalizedCurrent = normalizeCamera3DState(current);
+  return {
+    position: { ...normalizedCurrent.position, ...next.position },
+    rotation: { ...normalizedCurrent.rotation, ...next.rotation },
+    zoom: Number.isFinite(next.zoom) && next.zoom != null ? next.zoom : normalizedCurrent.zoom,
+    origin: next.origin ?? normalizedCurrent.origin,
+  };
+}
+
+function cameraStateToViewState(state: NormalizedCamera3DState): ViewState {
+  return {
+    position: state.position,
+    rotation: state.rotation,
+    zoom: state.zoom,
+  };
+}
+
+function viewStateToCameraState(view: ViewState, origin = '50% 50%'): NormalizedCamera3DState {
+  return {
+    position: view.position,
+    rotation: view.rotation,
+    zoom: view.zoom,
+    origin,
+  };
+}
+
+function cameraStateToData(state: NormalizedCamera3DState): string {
+  return JSON.stringify({
+    position: state.position,
+    rotation: state.rotation,
+    zoom: state.zoom,
+    origin: state.origin,
+  });
+}
+
+function vec3FromPartial(value?: Partial<Vec3>): Vec3 {
+  return {
+    x: value?.x ?? 0,
+    y: value?.y ?? 0,
+    z: value?.z ?? 0,
+  };
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+}
+
+function resolveCameraEasing(easing = 'ease-out'): (progress: number) => number {
+  if (easing === 'linear') return (progress) => progress;
+  if (easing === 'ease-in') return (progress) => progress * progress;
+  if (easing === 'ease-in-out') {
+    return (progress) => (progress < 0.5 ? 2 * progress * progress : 1 - ((-2 * progress + 2) ** 2) / 2);
+  }
+  return (progress) => 1 - (1 - progress) * (1 - progress);
+}
+
+function now(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+}
+
+function hasInteractionProps(props: InteractionProps): boolean {
+  return Boolean(
+    props.interactivePaths?.length ||
+    props.onNodeClick ||
+    props.onNodePointerEnter ||
+    props.onNodePointerLeave ||
+    props.onFaceClick,
+  );
+}
+
+function isInteractivePath(path: string, interactivePaths?: string[]): boolean {
+  if (!interactivePaths || interactivePaths.length === 0) return true;
+  return interactivePaths.includes(path);
+}
+
+function createEventPayload(
+  node: SceneNode,
+  path: string,
+  nativeEvent: React.MouseEvent | React.PointerEvent,
+  face?: FaceDescriptor,
+  faceIndex?: number,
+): Cube3DEventPayload {
+  return {
+    path,
+    nodeId: node.id,
+    modelName: node.modelName,
+    primitiveKind: node.primitive?.kind,
+    face: face?.direction,
+    faceIndex,
+    nativeEvent,
+  };
 }
 
 function pivotToCss(pivot: Vec3): string {

@@ -8,6 +8,7 @@
 - Scene graph nodes: `groupNode`, `primitiveNode`, `modelNode`.
 - Primitives: `boxPrimitive`, `planePrimitive`, `spritePrimitive`, `extrudePrimitive`.
 - Bounds and face descriptors: `getPrimitiveBounds`, `getPrimitiveFaces`, `resolveScene`.
+- View math: `ViewState`, `composeViewTransform`, `interpolateViewState`, `fitViewToBounds`, `projectBoundsToRect`.
 - Model composition: `defineModel`, `part`, `attach`, `resolveModel`.
 - Validation: `validateModel`, `validateScene`.
 
@@ -56,3 +57,20 @@ const node = resolveModel(model);
 ## Validation
 
 Use `validateModel(model)` before rendering external or generated designs. Current validation checks invalid primitive sizes, empty models, duplicate part ids, missing parts, and missing anchors.
+
+## View Math
+
+Core view helpers are pure math. They do not know about CSS, DOM, React, or Three.js.
+
+```ts
+import { createBounds, fitViewToBounds, projectBoundsToRect } from '@cube3d/core';
+
+const bounds = createBounds({ x: 0, y: 0, z: 0 }, { x: 240, y: 120, z: 80 });
+const view = fitViewToBounds(bounds, {
+  viewport: { x: 520, y: 360 },
+  padding: 32,
+});
+const projected = projectBoundsToRect(bounds, view);
+```
+
+This proves the model layer can calculate focus-style view states and projected rectangles. It does not prove browser CSS rendering; the React renderer and browser tests cover that separately.

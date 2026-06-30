@@ -6,3 +6,5 @@ build
 .vscode
 .idea
 .agent/
+test-results/
+playwright-report/

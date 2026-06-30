@@ -9,10 +9,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
-import { Model3D, Scene3D, Space3D } from '@cube3d/react';
+import { Camera3D, type Camera3DState, Model3D, Scene3D, Space3D, useCamera3D } from '@cube3d/react';
 import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
-import type { DesignPrimitiveNode } from './spec';
+import type { DemoCameraState, DesignPrimitiveNode } from './spec';
 
 export function CubeCandidate({ spec }: { spec: DemoSpec }) {
   const model = useMemo(() => createSceneFromSpec(spec), [spec]);
@@ -28,18 +28,40 @@ export function CubeCandidate({ spec }: { spec: DemoSpec }) {
       style={candidateShellStyle}
     >
       <Scene3D perspective={100000} origin="50% 50%" style={{ width: stageSize.width, height: stageSize.height }}>
-        <Space3D position={{ x: 178, y: 86, z: 0 }} rotation={{ x: 58, z: -34 }} size={{ x: 300, y: 230, z: 180 }}>
-          <CandidateContent spec={spec} model={model} />
-        </Space3D>
+        <CandidateCameraFrame spec={spec} model={model} />
       </Scene3D>
     </div>
   );
 }
 
-function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode }) {
+function CandidateCameraFrame({ spec, model }: { spec: DemoSpec; model: SceneNode }) {
+  const camera = useCamera3D(toCameraState(spec.cameraFocus?.initial));
+
+  return (
+    <Camera3D state={camera.state}>
+      <Space3D position={{ x: 178, y: 86, z: 0 }} rotation={{ x: 58, z: -34 }} size={{ x: 300, y: 230, z: 180 }}>
+        <CandidateContent spec={spec} model={model} camera={camera} />
+      </Space3D>
+    </Camera3D>
+  );
+}
+
+function CandidateContent({
+  spec,
+  model,
+  camera,
+}: {
+  spec: DemoSpec;
+  model: SceneNode;
+  camera: ReturnType<typeof useCamera3D>;
+}) {
   const [activePath, setActivePath] = useState('none');
   const [clicked, setClicked] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const interactivePaths = useMemo(
+    () => (spec.cameraFocus ? [spec.cameraFocus.interactivePath] : undefined),
+    [spec],
+  );
   const nodeFaceContent = useMemo(
     () => ({
       ...solidTextFaceContent(spec),
@@ -96,8 +118,15 @@ function CandidateContent({ spec, model }: { spec: DemoSpec; model: SceneNode })
         model={model}
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
+        interactivePaths={interactivePaths}
+        onNodeClick={(event) => {
+          if (spec.cameraFocus && event.path === spec.cameraFocus.interactivePath) {
+            setActivePath(event.path);
+            void camera.moveTo(toCameraState(spec.cameraFocus.target), { duration: 0 });
+          }
+        }}
       />
-      {spec.interactionChecks && activePath !== 'none' ? <div data-demo-debug style={debugPanelStyle}>path: {activePath}</div> : null}
+      {(spec.interactionChecks || spec.cameraFocus) && activePath !== 'none' ? <div data-demo-debug style={debugPanelStyle}>path: {activePath}</div> : null}
     </>
   );
 }
@@ -310,4 +339,13 @@ const solidTextSideMarkerStyle: React.CSSProperties = {
 
 function rgba(color: [number, number, number, number]) {
   return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
+}
+
+function toCameraState(state?: DemoCameraState): Camera3DState {
+  return {
+    position: state?.position ? { x: state.position[0], y: state.position[1], z: state.position[2] } : undefined,
+    rotation: state?.rotation ? { x: state.rotation[0], y: state.rotation[1], z: state.rotation[2] } : undefined,
+    zoom: state?.zoom,
+    origin: state?.origin,
+  };
 }

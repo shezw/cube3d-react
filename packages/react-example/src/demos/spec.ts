@@ -22,6 +22,7 @@ export type DemoId =
   | 'anchor-assembly'
   | 'nested-model'
   | 'object-field'
+  | 'camera-focus'
   | 'interaction-html'
   | 'cover-scene';
 
@@ -133,6 +134,19 @@ export type DemoCaseOption = {
   expected: string;
 };
 
+export type DemoCameraState = {
+  position?: Vec3Tuple;
+  rotation?: Vec3Tuple;
+  zoom?: number;
+  origin?: string;
+};
+
+export type DemoCameraFocus = {
+  initial: DemoCameraState;
+  target: DemoCameraState;
+  interactivePath: string;
+};
+
 export type DemoSpec = {
   id: DemoId;
   title: string;
@@ -146,6 +160,7 @@ export type DemoSpec = {
   anchorChecks?: AnchorCheckSpec[];
   modelCounts?: Record<string, number>;
   interactionChecks?: Array<'cube-face' | 'controller-button' | 'sprite-button'>;
+  cameraFocus?: DemoCameraFocus;
 };
 
 export const stageSize = { width: 520, height: 360 };
@@ -706,6 +721,35 @@ export const demoSpecs: DemoSpec[] = [
       ],
     },
     requiredPaths: ['object-field/base', 'object-field/cubeA', 'object-field/cubeB', 'object-field/camera', 'object-field/prop'],
+  },
+  {
+    id: 'camera-focus',
+    title: 'Camera Focus',
+    capability: 'view motion changes camera wrapper without mutating object transforms',
+    maxDiffRatio: 0.12,
+    root: {
+      id: 'camera-focus',
+      kind: 'model',
+      modelName: 'camera-focus',
+      children: [
+        box('base', [260, 166, 8], [67, 80, 230, 1], {
+          transform: { position: [34, 66, 0] },
+          faceColors: { top: [76, 88, 232, 1], front: [38, 48, 176, 1] },
+        }),
+        box('cubeA', [44, 44, 48], [70, 178, 104, 1], { transform: { position: [58, 88, 14] } }),
+        box('cubeB', [60, 54, 72], [240, 169, 80, 1], { transform: { position: [142, 78, 14] } }),
+        box('cubeC', [38, 48, 58], [233, 120, 163, 1], { transform: { position: [234, 46, 14] } }),
+        sprite('label', [96, 28], [255, 255, 255, 0.72], { transform: { position: [118, 156, 28] }, label: 'click cubeB' }),
+      ],
+    },
+    requiredPaths: ['camera-focus/base', 'camera-focus/cubeA', 'camera-focus/cubeB', 'camera-focus/cubeC', 'camera-focus/label'],
+    projectionPaths: ['camera-focus/base', 'camera-focus/cubeA', 'camera-focus/cubeB', 'camera-focus/cubeC'],
+    modelCounts: { 'camera-focus': 1 },
+    cameraFocus: {
+      initial: { position: [0, 0, 0], zoom: 1, origin: '50% 50%' },
+      target: { position: [-96, 44, 0], rotation: [0, 0, 0], zoom: 1.42, origin: '50% 50%' },
+      interactivePath: 'camera-focus/cubeB',
+    },
   },
   {
     id: 'interaction-html',

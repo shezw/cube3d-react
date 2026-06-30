@@ -52,6 +52,7 @@ test.describe('WebGL reference demo gallery', () => {
       await assertDemoStructure(page, resolved);
       await assertProjectedGeometry(page, resolved, testInfo);
       await assertDemoDetails(page, resolved);
+      await assertInteractiveWebSpaceBehavior(page, resolved);
     });
   }
 });
@@ -224,6 +225,28 @@ async function assertDemoDetails(page: Page, demo: DemoSpec) {
   await expect(code).toContainText(`id: '${demo.id}'`);
   await expect(code).toContainText('createSceneFromSpec');
   await expect(code).toContainText(demo.requiredPaths[0]);
+}
+
+async function assertInteractiveWebSpaceBehavior(page: Page, demo: DemoSpec) {
+  if (demo.id !== 'camera-focus') return;
+  expect(demo.cameraFocus).toBeTruthy();
+
+  const camera = page.locator('[data-cube3d-camera]');
+  await expect(camera).toHaveCount(1);
+  const cameraStateBefore = await camera.getAttribute('data-cube3d-camera-state');
+  const target = page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"]`);
+  const targetTransformBefore = await target.evaluate((element) => (element as HTMLElement).style.transform);
+
+  await page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"] [data-cube3d-face="front"]`).click({ force: true });
+
+  await expect(page.locator('[data-demo-debug]')).toContainText(`path: ${demo.cameraFocus!.interactivePath}`);
+  await expect.poll(async () => camera.getAttribute('data-cube3d-camera-state')).not.toBe(cameraStateBefore);
+  const cameraStateAfter = JSON.parse((await camera.getAttribute('data-cube3d-camera-state')) ?? '{}') as { position?: { x?: number; y?: number }; zoom?: number };
+  expect(cameraStateAfter.position?.x).toBe(demo.cameraFocus!.target.position?.[0]);
+  expect(cameraStateAfter.position?.y).toBe(demo.cameraFocus!.target.position?.[1]);
+  expect(cameraStateAfter.zoom).toBe(demo.cameraFocus!.target.zoom);
+  const targetTransformAfter = await target.evaluate((element) => (element as HTMLElement).style.transform);
+  expect(targetTransformAfter).toBe(targetTransformBefore);
 }
 
 async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {

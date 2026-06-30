@@ -16,7 +16,7 @@ Cube3D validation is layered. A passing build is only a package health check; it
 | Layer | Command | Proves | Does Not Prove |
 | --- | --- | --- | --- |
 | Core model tests | `pnpm --filter @cube3d/core test -- --run` | Transform math, primitive descriptors, bounds, anchors, model validation, resolver behavior | Browser CSS projection or DOM visibility |
-| Renderer contract tests | `pnpm --filter @cube3d/react test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, core descriptor mapping | Pixel output or final example composition |
+| Renderer contract tests | `pnpm --filter @cube3d/react test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, camera wrapper isolation, interaction payload metadata, core descriptor mapping | Pixel output or final example composition |
 | Example model tests | `pnpm --filter @cube3d/react-example test -- --run` | Character/controller/cover scene models are semantic and anchor based | Browser layout, viewport scale, actual visual visibility |
 | Browser structure tests | `pnpm test:browser` | Real Chromium can render the example; model objects are visible; key projected anchors remain aligned | Pixel-perfect design matching or screenshot regression |
 | WebGL reference demos | `pnpm test:webgl-reference` | Cube3D demos preserve object-level projected geometry against simplified Three.js references generated from the same `DemoSpec`, and keep structural contracts | Production-grade visual parity with true 3D rendering |
@@ -62,6 +62,19 @@ This means the WebGL reference layer can expose three different classes of failu
 - A Cube3D renderer/runtime failure, such as a face intercepting an HTML button click.
 
 Build success does not cover any of these cases.
+
+## Camera And Interaction Gates
+
+Camera and interaction are validated as library capabilities before they are used in complex cover scenes.
+
+| Capability | Required Proof | Failure Means |
+| --- | --- | --- |
+| Core view math | `view-state.test.ts` proves view composition, interpolation, fit-to-bounds, and projected rect calculations with deterministic numeric assertions | The library cannot compute reusable view states for focus/callout/camera demos |
+| React camera wrapper | `camera-interaction.test.tsx` proves `Camera3D` emits stable camera DOM attributes and changes only the camera wrapper transform while child object transforms remain present and unchanged | Camera motion may be secretly implemented by moving scene objects, which breaks model invariants |
+| Camera motion behavior | `camera-interaction.test.tsx` proves reduced motion jumps directly and a new `moveTo` cancels the previous scheduled motion before applying the new target | Interactive pages can get stuck in competing camera animations or ignore accessibility settings |
+| Interaction payload | `camera-interaction.test.tsx` proves face clicks produce stable `path`, `nodeId`, `primitiveKind`, `face`, and `faceIndex`; node clicks produce stable node payloads | A content system cannot reliably bind HTML interactions to model paths |
+
+These tests still do not prove a finished interactive webpage. They prove the library primitives needed by the later `camera-focus`, `camera-scroll`, `interactive-object`, `content-callout`, and `interactive-cover-scene` demos.
 
 ## Spatial Modeling Gates
 

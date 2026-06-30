@@ -89,6 +89,31 @@ export type Bounds3 = {
   max: Vec3;
 };
 
+export type ViewState = {
+  position: Vec3;
+  rotation: Euler;
+  zoom: number;
+  origin?: Vec3;
+};
+
+export type ProjectedRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+};
+
+export type FitViewOptions = {
+  viewport: Size2;
+  padding?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  rotation?: Partial<Euler>;
+  origin?: Partial<Vec3>;
+};
+
 export type Anchor = {
   id: string;
   position: Vec3;
@@ -198,6 +223,11 @@ export const IDENTITY_TRANSFORM: Transform3D = {
   rotation: ZERO_VEC3,
   scale: UNIT_VEC3,
 };
+export const DEFAULT_VIEW_STATE: ViewState = {
+  position: ZERO_VEC3,
+  rotation: ZERO_VEC3,
+  zoom: 1,
+};
 
 export function vec3(value?: Partial<Vec3>, fallback: Vec3 = ZERO_VEC3): Vec3 {
   return {
@@ -217,6 +247,14 @@ export function subVec3(a: Vec3, b: Vec3): Vec3 {
 
 export function scaleVec3(value: Vec3, scale: Vec3): Vec3 {
   return { x: value.x * scale.x, y: value.y * scale.y, z: value.z * scale.z };
+}
+
+export function lerpVec3(a: Vec3, b: Vec3, t: number): Vec3 {
+  return {
+    x: lerp(a.x, b.x, t),
+    y: lerp(a.y, b.y, t),
+    z: lerp(a.z, b.z, t),
+  };
 }
 
 export function normalizeTransform(transform?: PartialTransform3D): Transform3D {
@@ -643,6 +681,83 @@ export function boundsSize(bounds: Bounds3): Vec3 {
   };
 }
 
+export function normalizeViewState(view?: Partial<ViewState>): ViewState {
+  return {
+    position: vec3(view?.position),
+    rotation: vec3(view?.rotation),
+    zoom: Number.isFinite(view?.zoom) && view?.zoom != null ? view.zoom : 1,
+    origin: view?.origin ? vec3(view.origin) : undefined,
+  };
+}
+
+export function composeViewTransform(view: ViewState): Transform3D {
+  const normalized = normalizeViewState(view);
+  return normalizeTransform({
+    position: normalized.position,
+    rotation: normalized.rotation,
+    scale: { x: normalized.zoom, y: normalized.zoom, z: normalized.zoom },
+    pivot: normalized.origin,
+  });
+}
+
+export function interpolateViewState(a: ViewState, b: ViewState, t: number): ViewState {
+  const progress = clamp01(t);
+  const start = normalizeViewState(a);
+  const end = normalizeViewState(b);
+  return {
+    position: lerpVec3(start.position, end.position, progress),
+    rotation: lerpVec3(start.rotation, end.rotation, progress),
+    zoom: lerp(start.zoom, end.zoom, progress),
+    origin: start.origin || end.origin
+      ? lerpVec3(start.origin ?? ZERO_VEC3, end.origin ?? start.origin ?? ZERO_VEC3, progress)
+      : undefined,
+  };
+}
+
+export function fitViewToBounds(bounds: Bounds3, options: FitViewOptions): ViewState {
+  const size = boundsSize(bounds);
+  const center = boundsCenter(bounds);
+  const padding = Math.max(0, options.padding ?? 0);
+  const availableWidth = Math.max(1, options.viewport.x - padding * 2);
+  const availableHeight = Math.max(1, options.viewport.y - padding * 2);
+  const zoomX = size.x === 0 ? Infinity : availableWidth / size.x;
+  const zoomY = size.y === 0 ? Infinity : availableHeight / size.y;
+  const rawZoom = Math.min(zoomX, zoomY);
+  const finiteZoom = Number.isFinite(rawZoom) ? rawZoom : 1;
+  const zoom = clamp(finiteZoom, options.minZoom ?? 0.0001, options.maxZoom ?? Infinity);
+
+  return {
+    position: {
+      x: options.viewport.x / 2 - center.x * zoom,
+      y: options.viewport.y / 2 - center.y * zoom,
+      z: -center.z * zoom,
+    },
+    rotation: vec3(options.rotation),
+    zoom,
+    origin: options.origin ? vec3(options.origin) : undefined,
+  };
+}
+
+export function projectBoundsToRect(bounds: Bounds3, view: ViewState): ProjectedRect {
+  const normalized = normalizeViewState(view);
+  const minX = bounds.min.x * normalized.zoom + normalized.position.x;
+  const maxX = bounds.max.x * normalized.zoom + normalized.position.x;
+  const minY = bounds.min.y * normalized.zoom + normalized.position.y;
+  const maxY = bounds.max.y * normalized.zoom + normalized.position.y;
+  const x = Math.min(minX, maxX);
+  const y = Math.min(minY, maxY);
+  const width = Math.abs(maxX - minX);
+  const height = Math.abs(maxY - minY);
+  return {
+    x,
+    y,
+    width,
+    height,
+    centerX: x + width / 2,
+    centerY: y + height / 2,
+  };
+}
+
 export function getPrimitiveBounds(primitive: Primitive): Bounds3 {
   if (primitive.kind === 'box') {
     return createBounds({ x: 0, y: 0, z: 0 }, { x: primitive.size.x, y: primitive.size.y, z: primitive.size.z });
@@ -829,6 +944,18 @@ function degToRad(value: number): number {
 
 function radToDeg(value: number): number {
   return (value / Math.PI) * 180;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clamp01(value: number): number {
+  return clamp(Number.isFinite(value) ? value : 0, 0, 1);
 }
 
 function clampColor(value: number): number {
