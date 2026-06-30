@@ -23,6 +23,7 @@ import type {
   SceneNode,
   Size2,
   Size3,
+  Transform3D,
   Vec3,
   ViewState,
 } from '@cube3d/core';
@@ -254,6 +255,7 @@ export type Node3DProps = {
   faceClassName?: string;
   faceStyle?: React.CSSProperties | ((face: FaceDescriptor, index: number) => React.CSSProperties | undefined);
   nodeFaceStyle?: (node: SceneNode, face: FaceDescriptor, index: number) => React.CSSProperties | undefined;
+  nodeTransformOverride?: NodeTransformOverride;
   className?: string;
   style?: React.CSSProperties;
   path?: string;
@@ -277,6 +279,44 @@ export type InteractionProps = {
   onFaceClick?: (event: Cube3DEventPayload) => void;
 };
 
+export type NodeTransformOverride = (node: SceneNode, path: string) => PartialTransform3D | undefined;
+
+export type MotionPreset =
+  | 'hoverLift'
+  | 'pressDown'
+  | 'idleFloat'
+  | 'pulse'
+  | 'shake'
+  | 'reveal'
+  | 'openClose'
+  | 'rotateLoop';
+
+export type CameraMotionPreset =
+  | 'focus'
+  | 'dollyIn'
+  | 'orbitReveal'
+  | 'sectionTransition'
+  | 'resetView';
+
+export type MotionPresetState = {
+  active?: boolean;
+  progress?: number;
+  intensity?: number;
+};
+
+export function resolveMotionPreset(preset: MotionPreset, state: MotionPresetState = {}): PartialTransform3D {
+  const progress = clamp01(state.progress ?? (state.active ? 1 : 0));
+  const intensity = state.intensity ?? 1;
+  if (preset === 'hoverLift') return { position: { z: 12 * progress * intensity } };
+  if (preset === 'pressDown') return { position: { z: -5 * progress * intensity }, scale: { x: 1 - 0.03 * progress, y: 1 - 0.03 * progress, z: 1 - 0.03 * progress } };
+  if (preset === 'idleFloat') return { position: { z: Math.sin(progress * Math.PI * 2) * 6 * intensity } };
+  if (preset === 'pulse') return { scale: { x: 1 + 0.08 * progress * intensity, y: 1 + 0.08 * progress * intensity, z: 1 + 0.08 * progress * intensity } };
+  if (preset === 'shake') return { position: { x: Math.sin(progress * Math.PI * 8) * 8 * intensity } };
+  if (preset === 'reveal') return { position: { z: -24 + 24 * progress }, scale: { x: progress, y: progress, z: progress } };
+  if (preset === 'openClose') return { rotation: { y: 72 * progress * intensity } };
+  return { rotation: { z: 360 * progress * intensity } };
+}
+
 export function Node3D({
   node,
   children,
@@ -285,6 +325,7 @@ export function Node3D({
   faceClassName,
   faceStyle,
   nodeFaceStyle,
+  nodeTransformOverride,
   className,
   style,
   path,
@@ -298,6 +339,7 @@ export function Node3D({
   const faces = primitive ? getPrimitiveFaces(primitive) : [];
   const resolvedFaceContent = faceContent ?? contentForNode(nodeFaceContent?.[node.id]);
   const nodePath = path ?? node.id;
+  const renderedTransform = mergeTransformOverride(node.transform, nodeTransformOverride?.(node, nodePath));
   const interaction = {
     interactivePaths,
     onNodeClick,
@@ -314,7 +356,7 @@ export function Node3D({
       data-cube3d-path={nodePath}
       data-cube3d-model={node.kind === 'model' ? node.modelName : undefined}
       data-cube3d-primitive={primitive?.kind}
-      data-cube3d-pivot={node.transform.pivot ? vec3ToData(node.transform.pivot) : undefined}
+      data-cube3d-pivot={renderedTransform.pivot ? vec3ToData(renderedTransform.pivot) : undefined}
       data-cube3d-interactive={hasInteraction && isInteractive ? true : undefined}
       className={className}
       onClick={hasInteraction && isInteractive && onNodeClick ? (event) => onNodeClick(createEventPayload(node, nodePath, event)) : undefined}
@@ -325,8 +367,8 @@ export function Node3D({
         width: primitive ? `${primitiveSize(primitive).x}px` : undefined,
         height: primitive ? `${primitiveSize(primitive).y}px` : undefined,
         transformStyle: 'preserve-3d',
-        transformOrigin: node.transform.pivot ? pivotToCss(node.transform.pivot) : '50% 50%',
-        transform: transformToCss(node.transform),
+        transformOrigin: renderedTransform.pivot ? pivotToCss(renderedTransform.pivot) : '50% 50%',
+        transform: transformToCss(renderedTransform),
         pointerEvents: hasInteraction && isInteractive ? 'auto' : style?.pointerEvents,
         ...style,
       }}
@@ -384,6 +426,7 @@ export function Node3D({
           faceStyle={faceStyle}
           nodeFaceContent={nodeFaceContent}
           nodeFaceStyle={nodeFaceStyle}
+          nodeTransformOverride={nodeTransformOverride}
           interactivePaths={interactivePaths}
           onNodeClick={onNodeClick}
           onNodePointerEnter={onNodePointerEnter}
@@ -722,6 +765,19 @@ function transformToCss(transform?: PartialTransform3D): string {
   ].join(' ');
 }
 
+function mergeTransformOverride(base: PartialTransform3D, override?: PartialTransform3D): Transform3D {
+  if (!override) return normalizeTransform(base);
+  const normalized = normalizeTransform(base);
+  return normalizeTransform({
+    position: { ...normalized.position, ...override.position },
+    rotation: { ...normalized.rotation, ...override.rotation },
+    scale: { ...normalized.scale, ...override.scale },
+    pivot: override.pivot || normalized.pivot
+      ? { ...(normalized.pivot ?? { x: 0, y: 0, z: 0 }), ...override.pivot }
+      : undefined,
+  });
+}
+
 type NormalizedCamera3DState = {
   position: Vec3;
   rotation: Vec3;
@@ -795,6 +851,11 @@ function resolveCameraEasing(easing = 'ease-out'): (progress: number) => number 
     return (progress) => (progress < 0.5 ? 2 * progress * progress : 1 - ((-2 * progress + 2) ** 2) / 2);
   }
   return (progress) => 1 - (1 - progress) * (1 - progress);
+}
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
 }
 
 function now(): number {

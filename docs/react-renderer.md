@@ -107,6 +107,31 @@ Camera DOM contract:
 
 The payload includes stable `path`, `nodeId`, optional `modelName`, `primitiveKind`, `face`, and `faceIndex`. `interactivePaths` restricts which model paths receive pointer events.
 
+## Motion And Transform Overrides
+
+`nodeTransformOverride` applies renderer-only feedback transforms. It must not mutate the core model.
+
+```tsx
+<Model3D
+  model={scene}
+  nodeTransformOverride={(node, path) => (
+    path === selectedPath
+      ? { position: { z: node.transform.position.z + 12 } }
+      : undefined
+  )}
+/>
+```
+
+The renderer also exports deterministic motion preset helpers:
+
+```ts
+import { resolveMotionPreset } from '@cube3d/react';
+
+const lift = resolveMotionPreset('hoverLift', { active: true });
+```
+
+Current presets include `hoverLift`, `pressDown`, `idleFloat`, `pulse`, `shake`, `reveal`, `openClose`, and `rotateLoop`. Presets return transform fragments; callers decide how to merge them with current model state.
+
 ## Per-Node Styling
 
 `Model3D` accepts `nodeFaceContent` and `nodeFaceStyle` for renderer-only presentation details without changing the core model.

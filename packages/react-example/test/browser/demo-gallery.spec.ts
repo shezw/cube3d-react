@@ -228,25 +228,92 @@ async function assertDemoDetails(page: Page, demo: DemoSpec) {
 }
 
 async function assertInteractiveWebSpaceBehavior(page: Page, demo: DemoSpec) {
-  if (demo.id !== 'camera-focus') return;
-  expect(demo.cameraFocus).toBeTruthy();
+  if (demo.id === 'camera-focus') {
+    expect(demo.cameraFocus).toBeTruthy();
+    const camera = page.locator('[data-cube3d-camera]');
+    await expect(camera).toHaveCount(1);
+    const cameraStateBefore = await camera.getAttribute('data-cube3d-camera-state');
+    const target = page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"]`);
+    const targetTransformBefore = await target.evaluate((element) => (element as HTMLElement).style.transform);
 
-  const camera = page.locator('[data-cube3d-camera]');
-  await expect(camera).toHaveCount(1);
-  const cameraStateBefore = await camera.getAttribute('data-cube3d-camera-state');
-  const target = page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"]`);
-  const targetTransformBefore = await target.evaluate((element) => (element as HTMLElement).style.transform);
+    await page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"] [data-cube3d-face="front"]`).click({ force: true });
 
-  await page.locator(`[data-cube3d-path="${demo.cameraFocus!.interactivePath}"] [data-cube3d-face="front"]`).click({ force: true });
+    await expect(page.locator('[data-demo-debug]')).toContainText(`path: ${demo.cameraFocus!.interactivePath}`);
+    await expect.poll(async () => camera.getAttribute('data-cube3d-camera-state')).not.toBe(cameraStateBefore);
+    await expectCameraState(page, demo.cameraFocus!.target);
+    const targetTransformAfter = await target.evaluate((element) => (element as HTMLElement).style.transform);
+    expect(targetTransformAfter).toBe(targetTransformBefore);
+  }
 
-  await expect(page.locator('[data-demo-debug]')).toContainText(`path: ${demo.cameraFocus!.interactivePath}`);
-  await expect.poll(async () => camera.getAttribute('data-cube3d-camera-state')).not.toBe(cameraStateBefore);
-  const cameraStateAfter = JSON.parse((await camera.getAttribute('data-cube3d-camera-state')) ?? '{}') as { position?: { x?: number; y?: number }; zoom?: number };
-  expect(cameraStateAfter.position?.x).toBe(demo.cameraFocus!.target.position?.[0]);
-  expect(cameraStateAfter.position?.y).toBe(demo.cameraFocus!.target.position?.[1]);
-  expect(cameraStateAfter.zoom).toBe(demo.cameraFocus!.target.zoom);
-  const targetTransformAfter = await target.evaluate((element) => (element as HTMLElement).style.transform);
-  expect(targetTransformAfter).toBe(targetTransformBefore);
+  if (demo.id === 'camera-scroll') {
+    expect(demo.cameraScroll).toBeTruthy();
+    const finalSection = demo.cameraScroll!.sections.at(-1)!;
+    const baseTransformBefore = await page.locator('[data-cube3d-path="camera-scroll/base"]').evaluate((element) => (element as HTMLElement).style.transform);
+    await page.locator('[data-camera-scroll-rail]').evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      element.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+    await expect(page.locator('[data-camera-scroll-rail]')).toHaveAttribute('data-camera-scroll-active', finalSection.id);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-active-section', finalSection.id);
+    await expectCameraState(page, finalSection.camera);
+    const baseTransformAfter = await page.locator('[data-cube3d-path="camera-scroll/base"]').evaluate((element) => (element as HTMLElement).style.transform);
+    expect(baseTransformAfter).toBe(baseTransformBefore);
+  }
+
+  if (demo.id === 'interactive-object') {
+    const targetPath = 'interactive-object/switchBlock';
+    await page.locator(`[data-cube3d-path="${targetPath}"] [data-cube3d-face="top"]`).click({ force: true });
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-selected-path', targetPath);
+    await expect(page.locator('[data-content-panel]')).toHaveAttribute('data-content-path', targetPath);
+    await expect(page.locator('[data-content-panel]')).toContainText('Switch block');
+    await expectCameraState(page, demo.contentBindings!.find((binding) => binding.path === targetPath)!.camera!);
+  }
+
+  if (demo.id === 'character-reaction') {
+    const triggerPath = demo.characterReaction!.triggerPath;
+    await page.locator(`[data-cube3d-path="${triggerPath}"] [data-cube3d-face="front"]`).click({ force: true });
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-character-state', demo.characterReaction!.reactionState);
+    await expect(page.locator('[data-content-panel]')).toHaveAttribute('data-content-character-state', demo.characterReaction!.reactionState);
+    await expect(page.locator(`[data-cube3d-path="${demo.characterReaction!.characterPath}"]`)).toHaveCSS('transform', /matrix3d|matrix|translate3d/);
+    for (const check of demo.anchorChecks ?? []) {
+      await expectProjectedAnchorDistance(page, check.aPath, check.aAnchor, check.bPath, check.bAnchor, check.maxDistance);
+    }
+  }
+
+  if (demo.id === 'content-callout') {
+    await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', demo.callout!.initialPath);
+    const initialX = Number(await page.locator('[data-callout]').getAttribute('data-callout-x'));
+    const targetPath = 'content-callout/featureB';
+    await page.locator(`[data-cube3d-path="${targetPath}"] [data-cube3d-face="top"]`).click({ force: true });
+    await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', targetPath);
+    await expect(page.locator('[data-content-panel]')).toHaveAttribute('data-content-path', targetPath);
+    await expectCameraState(page, demo.contentBindings!.find((binding) => binding.path === targetPath)!.camera!);
+    const nextX = Number(await page.locator('[data-callout]').getAttribute('data-callout-x'));
+    expect(Number.isFinite(nextX)).toBe(true);
+    expect(nextX).not.toBe(initialX);
+  }
+
+  if (demo.id === 'interactive-cover-scene') {
+    const targetPath = demo.characterReaction!.triggerPath;
+    await page.locator(`[data-cube3d-path="${targetPath}"] [data-cube3d-face="top"]`).click({ force: true });
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-selected-path', targetPath);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-character-state', demo.characterReaction!.reactionState);
+    await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', targetPath);
+    await expect(page.locator('[data-content-panel]')).toContainText('Interactive prop');
+    await expectCameraState(page, demo.contentBindings!.find((binding) => binding.path === targetPath)!.camera!);
+  }
+}
+
+async function expectCameraState(page: Page, expected: NonNullable<DemoSpec['cameraFocus']>['target']) {
+  const state = JSON.parse((await page.locator('[data-cube3d-camera]').getAttribute('data-cube3d-camera-state')) ?? '{}') as { position?: { x?: number; y?: number; z?: number }; zoom?: number };
+  if (expected.position) {
+    expect(state.position?.x).toBe(expected.position[0]);
+    expect(state.position?.y).toBe(expected.position[1]);
+    expect(state.position?.z).toBe(expected.position[2]);
+  }
+  if (expected.zoom != null) {
+    expect(state.zoom).toBe(expected.zoom);
+  }
 }
 
 async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {

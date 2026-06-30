@@ -73,8 +73,24 @@ Camera and interaction are validated as library capabilities before they are use
 | React camera wrapper | `camera-interaction.test.tsx` proves `Camera3D` emits stable camera DOM attributes and changes only the camera wrapper transform while child object transforms remain present and unchanged | Camera motion may be secretly implemented by moving scene objects, which breaks model invariants |
 | Camera motion behavior | `camera-interaction.test.tsx` proves reduced motion jumps directly and a new `moveTo` cancels the previous scheduled motion before applying the new target | Interactive pages can get stuck in competing camera animations or ignore accessibility settings |
 | Interaction payload | `camera-interaction.test.tsx` proves face clicks produce stable `path`, `nodeId`, `primitiveKind`, `face`, and `faceIndex`; node clicks produce stable node payloads | A content system cannot reliably bind HTML interactions to model paths |
+| Motion / feedback | `camera-interaction.test.tsx` proves `nodeTransformOverride` changes rendered transforms without mutating the core node, and motion presets return deterministic transform fragments | Interactive feedback may corrupt model data or become impossible to reason about |
 
 These tests still do not prove a finished interactive webpage. They prove the library primitives needed by the later `camera-focus`, `camera-scroll`, `interactive-object`, `content-callout`, and `interactive-cover-scene` demos.
+
+## Interactive Demo Gates
+
+The interactive gallery demos validate the content-driven web-space layer:
+
+| Demo | Proves | Key Browser Assertion |
+| --- | --- | --- |
+| `camera-focus` | Clicking an object changes the camera wrapper, not the object model transform | camera state changes; selected cube inline transform remains unchanged |
+| `camera-scroll` | Scroll-like section state can drive camera state | active section changes to final section; base object transform remains unchanged |
+| `interactive-object` | Semantic model paths can drive content and camera state | clicking `switchBlock` updates selected path, content panel, and camera state |
+| `character-reaction` | Scene state can move a whole model without breaking internal anchors | clicking prop sets `characterState=excited`; character anchors remain aligned |
+| `content-callout` | 2D content can bind to projected 3D object bounds | selecting a feature updates `data-callout-path` and finite projected callout coordinates |
+| `interactive-cover-scene` | Cover scene can combine camera, content, callout, and character reaction | clicking the prop updates selected path, camera state, callout, content panel, and character state |
+
+These checks are intentionally structural and behavioral. They do not claim final art direction or game completeness.
 
 ## Spatial Modeling Gates
 

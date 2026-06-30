@@ -7,9 +7,9 @@
     @email   : hello@shezw.com
 */
 
-import React, { useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
-import { Camera3D, type Camera3DState, Model3D, Scene3D, Space3D, useCamera3D } from '@cube3d/react';
+import { Camera3D, type Camera3DState, Model3D, resolveMotionPreset, Scene3D, Space3D, useCamera3D } from '@cube3d/react';
 import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 import type { DemoCameraState, DesignPrimitiveNode } from './spec';
@@ -35,7 +35,7 @@ export function CubeCandidate({ spec }: { spec: DemoSpec }) {
 }
 
 function CandidateCameraFrame({ spec, model }: { spec: DemoSpec; model: SceneNode }) {
-  const camera = useCamera3D(toCameraState(spec.cameraFocus?.initial));
+  const camera = useCamera3D(initialCameraState(spec));
 
   return (
     <Camera3D state={camera.state}>
@@ -55,13 +55,25 @@ function CandidateContent({
   model: SceneNode;
   camera: ReturnType<typeof useCamera3D>;
 }) {
-  const [activePath, setActivePath] = useState('none');
+  const [activePath, setActivePath] = useState(spec.callout?.initialPath ?? spec.contentBindings?.[0]?.path ?? 'none');
   const [clicked, setClicked] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [hoveredPath, setHoveredPath] = useState<string | undefined>();
+  const [activeSection, setActiveSection] = useState(spec.cameraScroll?.sections[0]?.id ?? '');
+  const [characterState, setCharacterState] = useState('idle');
   const interactivePaths = useMemo(
-    () => (spec.cameraFocus ? [spec.cameraFocus.interactivePath] : undefined),
+    () => {
+      const paths = [
+        spec.cameraFocus?.interactivePath,
+        ...(spec.cameraScroll?.sections.map((section) => section.path) ?? []),
+        ...(spec.contentBindings?.map((binding) => binding.path) ?? []),
+        spec.characterReaction?.triggerPath,
+      ].filter(Boolean) as string[];
+      return paths.length > 0 ? Array.from(new Set(paths)) : undefined;
+    },
     [spec],
   );
+  const selectedBinding = spec.contentBindings?.find((binding) => binding.path === activePath);
   const nodeFaceContent = useMemo(
     () => ({
       ...solidTextFaceContent(spec),
@@ -106,6 +118,8 @@ function CandidateContent({
       cubeText: { front: <span style={extrudeTextStyle}>CUBE3D</span> },
       htmlText: { front: <span style={extrudeTextStyle}>HTML</span> },
       caption: { front: <span style={spriteLabelStyle}>live text</span> },
+      label: { front: <span style={spriteLabelStyle}>click cubeB</span> },
+      htmlPanel: { front: <button data-demo-action="semantic-html-panel" type="button" style={htmlButtonStyle}>panel</button> },
       visualWord: { front: <span style={extrudeTextStyle}>VISUAL</span> },
       cubeWord: { front: <span style={extrudeTextStyle}>CUBE</span> },
     }),
@@ -118,15 +132,53 @@ function CandidateContent({
         model={model}
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
+        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { activePath, hoveredPath, characterState }, spec)}
         interactivePaths={interactivePaths}
         onNodeClick={(event) => {
           if (spec.cameraFocus && event.path === spec.cameraFocus.interactivePath) {
             setActivePath(event.path);
             void camera.moveTo(toCameraState(spec.cameraFocus.target), { duration: 0 });
+            return;
+          }
+          const binding = spec.contentBindings?.find((item) => item.path === event.path);
+          if (binding) {
+            setActivePath(event.path);
+            if (binding.camera) void camera.moveTo(toCameraState(binding.camera), { duration: 0 });
+            if (binding.characterState) setCharacterState(binding.characterState);
+          }
+          if (spec.characterReaction && event.path === spec.characterReaction.triggerPath) {
+            setCharacterState(spec.characterReaction.reactionState);
           }
         }}
+        onNodePointerEnter={(event) => setHoveredPath(event.path)}
+        onNodePointerLeave={() => setHoveredPath(undefined)}
       />
-      {(spec.interactionChecks || spec.cameraFocus) && activePath !== 'none' ? <div data-demo-debug style={debugPanelStyle}>path: {activePath}</div> : null}
+      {spec.cameraScroll ? (
+        <CameraScrollRail
+          spec={spec}
+          activeSection={activeSection}
+          onSectionChange={(section) => {
+            setActiveSection(section.id);
+            setActivePath(section.path);
+            void camera.moveTo(toCameraState(section.camera), { duration: 0 });
+          }}
+        />
+      ) : null}
+      {spec.contentBindings ? (
+        <ContentPanel selectedPath={activePath} binding={selectedBinding} characterState={characterState} />
+      ) : null}
+      {spec.callout ? <CalloutOverlay spec={spec} selectedPath={activePath} binding={selectedBinding} /> : null}
+      {(spec.interactionChecks || spec.cameraFocus || spec.cameraScroll || spec.contentBindings || spec.characterReaction) && activePath !== 'none' ? (
+        <div
+          data-demo-debug
+          data-demo-selected-path={activePath}
+          data-demo-character-state={characterState}
+          data-demo-active-section={activeSection}
+          style={debugPanelStyle}
+        >
+          path: {activePath}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -214,6 +266,129 @@ function nodeFaceStyle(
   return undefined;
 }
 
+function nodeTransformOverride(
+  node: SceneNode,
+  path: string,
+  state: { activePath: string; hoveredPath?: string; characterState: string },
+  spec: DemoSpec,
+) {
+  if (spec.characterReaction && path === spec.characterReaction.characterPath && state.characterState === spec.characterReaction.reactionState) {
+    return { position: { z: node.transform.position.z + 12 } };
+  }
+  if (path === state.activePath && (spec.contentBindings || spec.callout || spec.interactiveCover)) {
+    const lift = resolveMotionPreset('hoverLift', { active: true });
+    return { position: { z: node.transform.position.z + (lift.position?.z ?? 0) } };
+  }
+  if (path === state.hoveredPath) {
+    const lift = resolveMotionPreset('hoverLift', { progress: 0.55 });
+    return { position: { z: node.transform.position.z + (lift.position?.z ?? 0) } };
+  }
+  return undefined;
+}
+
+function CameraScrollRail({
+  spec,
+  activeSection,
+  onSectionChange,
+}: {
+  spec: DemoSpec;
+  activeSection: string;
+  onSectionChange: (section: NonNullable<DemoSpec['cameraScroll']>['sections'][number]) => void;
+}) {
+  const sections = spec.cameraScroll?.sections ?? [];
+  return (
+    <div
+      data-camera-scroll-rail
+      data-camera-scroll-active={activeSection}
+      style={scrollRailStyle}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        const maxScroll = Math.max(1, element.scrollHeight - element.clientHeight);
+        const progress = element.scrollTop / maxScroll;
+        const index = Math.min(sections.length - 1, Math.round(progress * (sections.length - 1)));
+        const section = sections[index];
+        if (section && section.id !== activeSection) onSectionChange(section);
+      }}
+    >
+      {sections.map((section) => (
+        <button
+          key={section.id}
+          type="button"
+          data-camera-scroll-section={section.id}
+          aria-pressed={activeSection === section.id}
+          style={scrollSectionStyle}
+          onClick={() => onSectionChange(section)}
+        >
+          {section.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ContentPanel({
+  selectedPath,
+  binding,
+  characterState,
+}: {
+  selectedPath: string;
+  binding?: NonNullable<DemoSpec['contentBindings']>[number];
+  characterState: string;
+}) {
+  return (
+    <aside
+      data-content-panel
+      data-content-path={selectedPath}
+      data-content-character-state={characterState}
+      style={contentPanelStyle}
+    >
+      <strong>{binding?.title ?? 'No selection'}</strong>
+      <span>{binding?.body ?? 'Select an object.'}</span>
+    </aside>
+  );
+}
+
+function CalloutOverlay({
+  spec,
+  selectedPath,
+  binding,
+}: {
+  spec: DemoSpec;
+  selectedPath: string;
+  binding?: NonNullable<DemoSpec['contentBindings']>[number];
+}) {
+  const [target, setTarget] = useState({ x: 120, y: 120 });
+
+  useLayoutEffect(() => {
+    const stage = document.querySelector(`[data-candidate-stage][data-design-spec="${spec.id}"]`);
+    const faces = Array.from(document.querySelectorAll(`[data-cube3d-path="${selectedPath}"] [data-cube3d-face]`));
+    const stageRect = stage?.getBoundingClientRect();
+    const rects = faces.map((face) => face.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
+    if (!stageRect || rects.length === 0) return;
+    const left = Math.min(...rects.map((rect) => rect.left));
+    const top = Math.min(...rects.map((rect) => rect.top));
+    const right = Math.max(...rects.map((rect) => rect.right));
+    const bottom = Math.max(...rects.map((rect) => rect.bottom));
+    setTarget({
+      x: (left + right) / 2 - stageRect.left,
+      y: (top + bottom) / 2 - stageRect.top,
+    });
+  }, [binding, selectedPath, spec.id]);
+
+  return (
+    <div data-callout data-callout-path={selectedPath} data-callout-x={target.x.toFixed(2)} data-callout-y={target.y.toFixed(2)} style={calloutLayerStyle}>
+      <svg aria-hidden="true" style={calloutSvgStyle}>
+        <line x1={target.x} y1={target.y} x2={405} y2={82} stroke="rgba(255,230,128,0.9)" strokeWidth="2" />
+        <circle cx={target.x} cy={target.y} r="4" fill="rgba(255,230,128,0.96)" />
+      </svg>
+      <div style={calloutCardStyle}>
+        <strong>{binding?.title ?? selectedPath}</strong>
+        <span>{binding?.body ?? 'Projected callout target.'}</span>
+      </div>
+    </div>
+  );
+}
+
 function solidTextFaceContent(spec: DemoSpec) {
   const entries = flattenDesignNodes(spec.root)
     .filter((entry): entry is { path: string; node: DesignPrimitiveNode } => (
@@ -269,6 +444,13 @@ function countNodes(node: DemoSpec['root']): number {
   return 1 + node.children.reduce((sum, child) => sum + (child.kind === 'model' ? countNodes(child) : 1), 0);
 }
 
+function initialCameraState(spec: DemoSpec): Camera3DState {
+  return toCameraState(
+    spec.cameraFocus?.initial ??
+    spec.cameraScroll?.initial,
+  );
+}
+
 const candidateShellStyle: React.CSSProperties = {
   position: 'relative',
   width: stageSize.width,
@@ -321,6 +503,74 @@ const debugPanelStyle: React.CSSProperties = {
   padding: '6px 8px',
   background: 'rgba(0,0,0,0.36)',
   border: '1px solid rgba(255,255,255,0.16)',
+};
+
+const scrollRailStyle: React.CSSProperties = {
+  position: 'absolute',
+  right: 10,
+  top: 20,
+  width: 102,
+  height: 92,
+  display: 'grid',
+  gap: 10,
+  overflowY: 'auto',
+  padding: 6,
+  background: 'rgba(12,15,26,0.55)',
+  border: '1px solid rgba(255,255,255,0.18)',
+};
+
+const scrollSectionStyle: React.CSSProperties = {
+  minHeight: 54,
+  border: '1px solid rgba(255,255,255,0.22)',
+  color: '#eef1ff',
+  background: 'rgba(255,255,255,0.12)',
+  fontWeight: 800,
+  cursor: 'pointer',
+};
+
+const contentPanelStyle: React.CSSProperties = {
+  position: 'absolute',
+  right: 10,
+  bottom: 12,
+  width: 164,
+  display: 'grid',
+  gap: 4,
+  padding: '8px 10px',
+  color: '#f6f7ff',
+  fontSize: 11,
+  lineHeight: 1.3,
+  background: 'rgba(18,22,36,0.78)',
+  border: '1px solid rgba(255,255,255,0.18)',
+  pointerEvents: 'none',
+};
+
+const calloutLayerStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none',
+};
+
+const calloutSvgStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  overflow: 'visible',
+};
+
+const calloutCardStyle: React.CSSProperties = {
+  position: 'absolute',
+  right: 10,
+  top: 52,
+  width: 116,
+  display: 'grid',
+  gap: 4,
+  padding: 8,
+  color: '#1b2032',
+  fontSize: 10,
+  lineHeight: 1.25,
+  background: 'rgba(255,236,148,0.94)',
+  border: '1px solid rgba(255,255,255,0.42)',
 };
 
 const solidTextSvgStyle: React.CSSProperties = {

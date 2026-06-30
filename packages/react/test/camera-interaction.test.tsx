@@ -14,7 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { boxPrimitive, modelNode, primitiveNode } from '@cube3d/core';
-import { Camera3D, type Cube3DEventPayload, Model3D, Scene3D, useCamera3D } from '../src';
+import { Camera3D, type Cube3DEventPayload, Model3D, resolveMotionPreset, Scene3D, useCamera3D } from '../src';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -170,6 +170,42 @@ describe('@cube3d/react camera and interaction contract', () => {
       nodeId: 'cube',
       primitiveKind: 'box',
     });
+  });
+
+  it('applies node transform overrides without mutating the core model transform', () => {
+    const cube = primitiveNode({
+      id: 'cube',
+      primitive: boxPrimitive({ size: { x: 20, y: 20, z: 20 } }),
+      transform: { position: { x: 4, y: 5, z: 6 }, rotation: { z: 10 } },
+    });
+    const model = modelNode({
+      id: 'scene',
+      modelName: 'scene',
+      children: [cube],
+    });
+
+    const html = renderToStaticMarkup(
+      <Scene3D>
+        <Model3D
+          model={model}
+          nodeTransformOverride={(_node, path) => (path === 'scene/cube' ? { position: { z: 18 }, scale: { x: 1.1, y: 1.1, z: 1.1 } } : undefined)}
+        />
+      </Scene3D>,
+    );
+
+    expect(html).toContain('data-cube3d-path="scene/cube"');
+    expect(html).toContain('translate3d(4px, 5px, 18px)');
+    expect(html).toContain('rotateZ(10deg)');
+    expect(html).toContain('scale3d(1.1, 1.1, 1.1)');
+    expect(cube.transform.position).toEqual({ x: 4, y: 5, z: 6 });
+    expect(cube.transform.scale).toEqual({ x: 1, y: 1, z: 1 });
+  });
+
+  it('resolves deterministic motion presets for interaction feedback', () => {
+    expect(resolveMotionPreset('hoverLift', { active: true })).toEqual({ position: { z: 12 } });
+    expect(resolveMotionPreset('pressDown', { active: true })).toMatchObject({ position: { z: -5 } });
+    expect(resolveMotionPreset('openClose', { progress: 0.5 })).toEqual({ rotation: { y: 36 } });
+    expect(resolveMotionPreset('rotateLoop', { progress: 0.25 })).toEqual({ rotation: { z: 90 } });
   });
 
   function renderCameraHarness() {

@@ -23,7 +23,12 @@ export type DemoId =
   | 'nested-model'
   | 'object-field'
   | 'camera-focus'
+  | 'camera-scroll'
+  | 'interactive-object'
+  | 'character-reaction'
+  | 'content-callout'
   | 'interaction-html'
+  | 'interactive-cover-scene'
   | 'cover-scene';
 
 export type Vec3Tuple = [number, number, number];
@@ -147,6 +152,21 @@ export type DemoCameraFocus = {
   interactivePath: string;
 };
 
+export type DemoCameraSection = {
+  id: string;
+  label: string;
+  path: string;
+  camera: DemoCameraState;
+};
+
+export type DemoContentBinding = {
+  path: string;
+  title: string;
+  body: string;
+  camera?: DemoCameraState;
+  characterState?: string;
+};
+
 export type DemoSpec = {
   id: DemoId;
   title: string;
@@ -161,6 +181,20 @@ export type DemoSpec = {
   modelCounts?: Record<string, number>;
   interactionChecks?: Array<'cube-face' | 'controller-button' | 'sprite-button'>;
   cameraFocus?: DemoCameraFocus;
+  cameraScroll?: {
+    initial: DemoCameraState;
+    sections: DemoCameraSection[];
+  };
+  contentBindings?: DemoContentBinding[];
+  characterReaction?: {
+    triggerPath: string;
+    characterPath: string;
+    reactionState: string;
+  };
+  callout?: {
+    initialPath: string;
+  };
+  interactiveCover?: boolean;
 };
 
 export const stageSize = { width: 520, height: 360 };
@@ -752,6 +786,117 @@ export const demoSpecs: DemoSpec[] = [
     },
   },
   {
+    id: 'camera-scroll',
+    title: 'Camera Scroll',
+    capability: 'scroll-driven view states without moving scene objects',
+    maxDiffRatio: 0.12,
+    root: {
+      id: 'camera-scroll',
+      kind: 'model',
+      modelName: 'camera-scroll',
+      children: [
+        box('base', [286, 172, 8], [67, 80, 230, 1], { transform: { position: [28, 64, 0] } }),
+        box('introCube', [42, 42, 46], [70, 178, 104, 1], { transform: { position: [52, 88, 14] } }),
+        box('middleCube', [60, 48, 70], [240, 169, 80, 1], { transform: { position: [142, 76, 14] } }),
+        box('finalCube', [42, 58, 56], [233, 120, 163, 1], { transform: { position: [236, 48, 14] } }),
+      ],
+    },
+    requiredPaths: ['camera-scroll/base', 'camera-scroll/introCube', 'camera-scroll/middleCube', 'camera-scroll/finalCube'],
+    projectionPaths: ['camera-scroll/base', 'camera-scroll/introCube', 'camera-scroll/middleCube', 'camera-scroll/finalCube'],
+    modelCounts: { 'camera-scroll': 1 },
+    cameraScroll: {
+      initial: { position: [0, 0, 0], zoom: 1, origin: '50% 50%' },
+      sections: [
+        { id: 'intro', label: 'Intro', path: 'camera-scroll/introCube', camera: { position: [0, 0, 0], zoom: 1, origin: '50% 50%' } },
+        { id: 'middle', label: 'Middle', path: 'camera-scroll/middleCube', camera: { position: [-52, 24, 0], zoom: 1.28, origin: '50% 50%' } },
+        { id: 'final', label: 'Final', path: 'camera-scroll/finalCube', camera: { position: [-112, 46, 0], zoom: 1.44, origin: '50% 50%' } },
+      ],
+    },
+  },
+  {
+    id: 'interactive-object',
+    title: 'Interactive Object',
+    capability: 'semantic path payload drives selected content and object feedback',
+    maxDiffRatio: 0.16,
+    root: {
+      id: 'interactive-object',
+      kind: 'model',
+      modelName: 'interactive-object',
+      children: [
+        box('base', [250, 150, 8], [67, 80, 230, 1], { transform: { position: [42, 70, 0] } }),
+        box('infoCube', [52, 52, 54], blue, { transform: { position: [70, 86, 14] } }),
+        box('switchBlock', [76, 34, 26], [70, 178, 104, 1], { transform: { position: [154, 94, 18] } }),
+        sprite('htmlPanel', [96, 42], [255, 255, 255, 0.76], { transform: { position: [132, 36, 46] }, label: 'panel' }),
+      ],
+    },
+    requiredPaths: ['interactive-object/base', 'interactive-object/infoCube', 'interactive-object/switchBlock', 'interactive-object/htmlPanel'],
+    projectionPaths: ['interactive-object/base', 'interactive-object/infoCube', 'interactive-object/switchBlock', 'interactive-object/htmlPanel'],
+    modelCounts: { 'interactive-object': 1 },
+    contentBindings: [
+      { path: 'interactive-object/infoCube', title: 'Info cube', body: 'Selected from semantic cube path.', camera: { position: [-20, 12, 0], zoom: 1.18, origin: '50% 50%' } },
+      { path: 'interactive-object/switchBlock', title: 'Switch block', body: 'Selected from semantic switch path.', camera: { position: [-70, 20, 0], zoom: 1.24, origin: '50% 50%' } },
+      { path: 'interactive-object/htmlPanel', title: 'HTML panel', body: 'Selected from semantic sprite path.', camera: { position: [-48, 48, 0], zoom: 1.18, origin: '50% 50%' } },
+    ],
+  },
+  {
+    id: 'character-reaction',
+    title: 'Character Reaction',
+    capability: 'selected state drives whole-model reaction without breaking anchors',
+    maxDiffRatio: 0.18,
+    root: {
+      id: 'character-reaction',
+      kind: 'model',
+      modelName: 'character-reaction',
+      children: [
+        box('stage', [260, 154, 10], [67, 80, 230, 1], { transform: { position: [42, 86, 0] } }),
+        { ...characterNode, transform: { position: [126, 20, 40], scale: [0.58, 0.58, 0.58] } },
+        box('reactionProp', [46, 38, 34], [233, 120, 163, 1], { transform: { position: [70, 82, 30] } }),
+      ],
+    },
+    requiredPaths: ['character-reaction/stage', 'character-reaction/character/body', 'character-reaction/character/head', 'character-reaction/character/controller/shell', 'character-reaction/reactionProp'],
+    projectionPaths: ['character-reaction/stage', 'character-reaction/character', 'character-reaction/reactionProp'],
+    modelCounts: { 'character-reaction': 1, character: 1, controller: 1 },
+    anchorChecks: [
+      { aPath: 'character-reaction/character/head', aAnchor: 'bottom', bPath: 'character-reaction/character/neck', bAnchor: 'top', maxDistance: 2 },
+      { aPath: 'character-reaction/character/leftHand', aAnchor: 'grip', bPath: 'character-reaction/character/controller', bAnchor: 'leftGrip', maxDistance: 2 },
+      { aPath: 'character-reaction/character/rightHand', aAnchor: 'grip', bPath: 'character-reaction/character/controller', bAnchor: 'rightGrip', maxDistance: 2 },
+    ],
+    characterReaction: {
+      triggerPath: 'character-reaction/reactionProp',
+      characterPath: 'character-reaction/character',
+      reactionState: 'excited',
+    },
+    contentBindings: [
+      { path: 'character-reaction/reactionProp', title: 'Reaction prop', body: 'Clicking the prop changes scene state and character feedback.', characterState: 'excited' },
+    ],
+  },
+  {
+    id: 'content-callout',
+    title: 'Content Callout',
+    capability: '2D content panel binds to selected 3D object projected bounds',
+    maxDiffRatio: 0.16,
+    root: {
+      id: 'content-callout',
+      kind: 'model',
+      modelName: 'content-callout',
+      children: [
+        box('base', [270, 158, 8], [67, 80, 230, 1], { transform: { position: [32, 72, 0] } }),
+        box('featureA', [48, 48, 54], [70, 178, 104, 1], { transform: { position: [66, 92, 14] } }),
+        box('featureB', [58, 42, 66], [240, 169, 80, 1], { transform: { position: [154, 82, 14] } }),
+        box('featureC', [42, 54, 48], [233, 120, 163, 1], { transform: { position: [232, 54, 14] } }),
+      ],
+    },
+    requiredPaths: ['content-callout/base', 'content-callout/featureA', 'content-callout/featureB', 'content-callout/featureC'],
+    projectionPaths: ['content-callout/base', 'content-callout/featureA', 'content-callout/featureB', 'content-callout/featureC'],
+    modelCounts: { 'content-callout': 1 },
+    contentBindings: [
+      { path: 'content-callout/featureA', title: 'Feature A', body: 'Callout target is computed from object faces.' },
+      { path: 'content-callout/featureB', title: 'Feature B', body: 'Camera and panel can respond to the same selected path.', camera: { position: [-58, 20, 0], zoom: 1.28, origin: '50% 50%' } },
+      { path: 'content-callout/featureC', title: 'Feature C', body: 'Resize or camera changes recompute the callout target.', camera: { position: [-112, 42, 0], zoom: 1.36, origin: '50% 50%' } },
+    ],
+    callout: { initialPath: 'content-callout/featureA' },
+  },
+  {
     id: 'interaction-html',
     title: 'Interaction HTML Identity',
     capability: 'HTML interaction inside pseudo 3D faces',
@@ -769,6 +914,50 @@ export const demoSpecs: DemoSpec[] = [
     },
     requiredPaths: ['interaction-html/button-box', 'interaction-html/controller', 'interaction-html/controller-hit', 'interaction-html/html-sprite'],
     interactionChecks: ['cube-face', 'controller-button', 'sprite-button'],
+  },
+  {
+    id: 'interactive-cover-scene',
+    title: 'Interactive Cover Scene',
+    capability: 'integrated camera, content, callout and character reaction scene',
+    maxDiffRatio: 0.25,
+    root: {
+      id: 'interactive-cover-scene',
+      kind: 'model',
+      modelName: 'interactive-cover-scene',
+      children: [
+        islandNode,
+        { ...cameraNode, transform: { position: [76, 48, 58] } },
+        { ...characterNode, transform: { position: [190, -6, 64], scale: [0.78, 0.78, 0.78] } },
+        box('interactiveProp', [44, 34, 24], [70, 178, 104, 1], { transform: { position: [42, 142, 90] } }),
+        extrude('visualWord', [126, 34], [239, 130, 168, 1], { transform: { position: [64, 170, 44] }, textHeight: 18, textSmooth: 'mid', label: 'VISUAL', renderMode: 'layered-text' }),
+      ],
+    },
+    requiredPaths: [
+      'interactive-cover-scene/island/base',
+      'interactive-cover-scene/camera/body',
+      'interactive-cover-scene/character/body',
+      'interactive-cover-scene/character/controller/shell',
+      'interactive-cover-scene/interactiveProp',
+      'interactive-cover-scene/visualWord',
+    ],
+    projectionPaths: ['interactive-cover-scene/island', 'interactive-cover-scene/camera', 'interactive-cover-scene/character', 'interactive-cover-scene/interactiveProp', 'interactive-cover-scene/visualWord'],
+    modelCounts: { 'interactive-cover-scene': 1, island: 1, camera: 1, character: 1, controller: 1 },
+    anchorChecks: [
+      { aPath: 'interactive-cover-scene/character/head', aAnchor: 'bottom', bPath: 'interactive-cover-scene/character/neck', bAnchor: 'top', maxDistance: 2 },
+      { aPath: 'interactive-cover-scene/character/leftHand', aAnchor: 'grip', bPath: 'interactive-cover-scene/character/controller', bAnchor: 'leftGrip', maxDistance: 2 },
+    ],
+    contentBindings: [
+      { path: 'interactive-cover-scene/camera/body', title: 'Camera object', body: 'Camera object stays model-driven while the page view moves.', camera: { position: [-16, 24, 0], zoom: 1.16, origin: '50% 50%' } },
+      { path: 'interactive-cover-scene/interactiveProp', title: 'Interactive prop', body: 'This prop drives camera, callout and character reaction.', camera: { position: [-98, 38, 0], zoom: 1.34, origin: '50% 50%' }, characterState: 'excited' },
+      { path: 'interactive-cover-scene/visualWord', title: 'Layered word', body: 'Cover scene can mix previous verified visual assets.', camera: { position: [-48, -6, 0], zoom: 1.18, origin: '50% 50%' } },
+    ],
+    characterReaction: {
+      triggerPath: 'interactive-cover-scene/interactiveProp',
+      characterPath: 'interactive-cover-scene/character',
+      reactionState: 'excited',
+    },
+    callout: { initialPath: 'interactive-cover-scene/camera/body' },
+    interactiveCover: true,
   },
   {
     id: 'cover-scene',
