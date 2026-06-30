@@ -33,28 +33,28 @@ test.describe('WebGL reference demo gallery', () => {
     }
   });
 
-  for (const demo of expandedDemoSpecs()) {
-    test(`${demo.id}${demo.selectedCase ? `/${demo.selectedCase}` : ''} matches shared-spec reference and structural contract`, async ({ page }, testInfo) => {
-      await page.goto(`/?demo=${demo.id}${demo.selectedCase ? `&case=${demo.selectedCase}` : ''}`);
+  for (const demo of demoSpecs) {
+    test(`${demo.id} matches shared-spec reference and structural contract`, async ({ page }, testInfo) => {
+      await page.goto(`/?demo=${demo.id}`);
+      if (demo.cases && demo.cases.length > 0) {
+        await assertSpatialComparisonBoard(page, testInfo, demo);
+        await assertDemoDetails(page, demo);
+        return;
+      }
+
       await expect(page.locator('[data-validation-panel="reference"]')).toBeVisible();
       await expect(page.locator('[data-validation-panel="candidate"]')).toBeVisible();
-      await assertSharedSpecProvenance(page, demo);
+      const resolved = getDemoSpec(demo.id);
+      await assertSharedSpecProvenance(page, resolved);
 
-      await assertCandidateVisualRegressions(page, demo);
-      await comparePanels(page, testInfo, demo);
-      await assertDemoStructure(page, demo);
-      await assertProjectedGeometry(page, demo, testInfo);
-      await assertDemoDetails(page, demo);
+      await assertCandidateVisualRegressions(page, resolved);
+      await comparePanels(page, testInfo, resolved);
+      await assertDemoStructure(page, resolved);
+      await assertProjectedGeometry(page, resolved, testInfo);
+      await assertDemoDetails(page, resolved);
     });
   }
 });
-
-function expandedDemoSpecs() {
-  return demoSpecs.flatMap((demo) => {
-    const cases = getDemoCases(demo.id);
-    return cases.length > 0 ? cases.map((item) => getDemoSpec(demo.id, item.id)) : [getDemoSpec(demo.id)];
-  });
-}
 
 async function assertSharedSpecProvenance(page: Page, demo: DemoSpec) {
   await expect(page.locator('[data-reference-canvas]')).toHaveAttribute('data-design-spec', demo.id);
@@ -69,8 +69,17 @@ async function assertSharedSpecProvenance(page: Page, demo: DemoSpec) {
 }
 
 async function comparePanels(page: Page, testInfo: TestInfo, demo: DemoSpec) {
-  const reference = await panelScreenshot(page.locator('[data-validation-panel="reference"]'));
-  const candidate = await panelScreenshot(page.locator('[data-validation-panel="candidate"]'));
+  return comparePanelLocators(
+    page.locator('[data-validation-panel="reference"]'),
+    page.locator('[data-validation-panel="candidate"]'),
+    testInfo,
+    demo,
+  );
+}
+
+async function comparePanelLocators(referenceLocator: Locator, candidateLocator: Locator, testInfo: TestInfo, demo: DemoSpec) {
+  const reference = await panelScreenshot(referenceLocator);
+  const candidate = await panelScreenshot(candidateLocator);
   const referencePng = PNG.sync.read(reference);
   const candidatePng = PNG.sync.read(candidate);
   expect(candidatePng.width).toBe(referencePng.width);
@@ -119,6 +128,83 @@ async function assertDemoStructure(page: Page, demo: DemoSpec) {
 
   await assertPrimitiveContracts(page, demo);
   await assertInteraction(page, demo);
+}
+
+async function assertSpatialComparisonBoard(page: Page, testInfo: TestInfo, demo: DemoSpec) {
+  const cases = getDemoCases(demo.id);
+  await expect(page.locator(`[data-spatial-comparison="${demo.id}"]`)).toBeVisible();
+  await expect(page.locator('[data-demo-case-select]')).toHaveCount(0);
+  await expect(page.locator('[data-spatial-case-card]')).toHaveCount(cases.length);
+
+  for (const option of cases) {
+    const caseSpec = getDemoSpec(demo.id, option.id);
+    const card = page.locator(`[data-spatial-case-card="${option.id}"]`);
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(option.label);
+    await expect(card).toContainText(option.expected);
+    await expect(card.locator('[data-spatial-case-result="pass"]')).toHaveCount(1);
+    await expect(card.locator(`[data-spatial-case-check="${option.id}"]`)).not.toBeEmpty();
+    await expect(card.locator('[data-spatial-panel="reference"]')).toHaveCount(1);
+    await expect(card.locator('[data-spatial-panel="candidate"]')).toHaveCount(1);
+    await expect(card.locator('[data-reference-canvas]')).toHaveAttribute('data-design-case', option.id);
+    await expect(card.locator('[data-candidate-stage]')).toHaveAttribute('data-design-case', option.id);
+    await expect(card.locator('[data-candidate-stage]')).toHaveAttribute('data-design-node-count', String(flattenDesignNodes(caseSpec.root).length));
+
+    await comparePanelLocators(
+      card.locator('[data-spatial-panel="reference"]'),
+      card.locator('[data-spatial-panel="candidate"]'),
+      testInfo,
+      caseSpec,
+    );
+    await assertOnlyCardCasePaths(card, demo, option.id);
+    await assertCaseGuides(card, demo.id, option.id);
+    assertSpatialCaseSemantics(caseSpec);
+  }
+}
+
+async function assertOnlyCardCasePaths(card: Locator, demo: DemoSpec, selectedCase: string) {
+  for (const option of getDemoCases(demo.id)) {
+    const selector = `[data-cube3d-path="${demo.root.id}/${option.id}"], [data-cube3d-path^="${demo.root.id}/${option.id}/"]`;
+    if (option.id === selectedCase) {
+      await expect(card.locator(selector), `${demo.id}/${option.id} should be present in its card`).not.toHaveCount(0);
+    } else {
+      await expect(card.locator(selector), `${demo.id}/${option.id} should be absent from this card`).toHaveCount(0);
+    }
+  }
+}
+
+async function assertCaseGuides(card: Locator, demoId: string, caseId: string) {
+  if (demoId === 'anchor-orientation') {
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/guidePlane"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socketAxis"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plugAxis"]`)).toHaveCount(1);
+  }
+  if (demoId === 'pivot-origin') {
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPlane"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotAxis"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPin"]`)).toHaveCount(1);
+  }
+  if (demoId === 'world-bounds') {
+    const stackPath = caseId === 'nestedScaledStack' ? 'world-bounds/nestedScaledStack/innerStack' : `world-bounds/${caseId}`;
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/boundsFootprint"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/localXAxis"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/localYAxis"]`)).toHaveCount(1);
+  }
+}
+
+function assertSpatialCaseSemantics(caseSpec: DemoSpec) {
+  if (caseSpec.id === 'anchor-orientation') {
+    assertControlledAnchorComparison(caseSpec);
+    assertAnchorOrientationSpec(caseSpec);
+  }
+  if (caseSpec.id === 'pivot-origin') {
+    assertControlledPivotComparison(caseSpec);
+    assertPivotSpec(caseSpec);
+  }
+  if (caseSpec.id === 'world-bounds') {
+    assertControlledWorldBoundsComparison(caseSpec);
+    assertWorldBoundsSpec(caseSpec);
+  }
 }
 
 async function assertDemoDetails(page: Page, demo: DemoSpec) {

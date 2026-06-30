@@ -130,6 +130,7 @@ export type AnchorCheckSpec = {
 export type DemoCaseOption = {
   id: string;
   label: string;
+  expected: string;
 };
 
 export type DemoSpec = {
@@ -303,9 +304,9 @@ const anchorOrientationCases: DesignModelNode[] = [
 ];
 
 const anchorOrientationCaseOptions: DemoCaseOption[] = [
-  { id: 'positionOnlyControl', label: 'Position-only control' },
-  { id: 'orientationAttach', label: 'Position + orientation' },
-  { id: 'orientationWithParentTransform', label: 'Orientation under parent transform' },
+  { id: 'positionOnlyControl', label: 'Position-only control', expected: 'Plug origin touches socket anchor, but the green direction guides do not line up.' },
+  { id: 'orientationAttach', label: 'Position + orientation', expected: 'Plug origin touches socket anchor and both green direction guides line up.' },
+  { id: 'orientationWithParentTransform', label: 'Parent transform', expected: 'The same aligned pair remains attached after the parent group rotates and scales.' },
 ];
 
 const pivotOriginCases: DesignModelNode[] = [
@@ -324,9 +325,9 @@ const pivotOriginCases: DesignModelNode[] = [
 ];
 
 const pivotOriginCaseOptions: DemoCaseOption[] = [
-  { id: 'centerPivotCase', label: 'Center pivot' },
-  { id: 'leftHingeCase', label: 'Left hinge pivot' },
-  { id: 'topHingeCase', label: 'Top hinge pivot' },
+  { id: 'centerPivotCase', label: 'Center pivot', expected: 'Door rotates around the yellow center pin; handle stays attached to the door.' },
+  { id: 'leftHingeCase', label: 'Left hinge pivot', expected: 'Same door rotates around the left yellow pin; handle stays attached to the door.' },
+  { id: 'topHingeCase', label: 'Top hinge pivot', expected: 'Same door rotates around the top yellow pin; handle stays attached to the door.' },
 ];
 
 const worldBoundsCases: DesignModelNode[] = [
@@ -356,9 +357,9 @@ const worldBoundsCases: DesignModelNode[] = [
 ];
 
 const worldBoundsCaseOptions: DemoCaseOption[] = [
-  { id: 'translatedStack', label: 'Translated stack' },
-  { id: 'rotatedStack', label: 'Rotated stack' },
-  { id: 'nestedScaledStack', label: 'Nested scaled stack' },
+  { id: 'translatedStack', label: 'Translated stack', expected: 'Root bounds contains the unrotated stack and its cyan footprint plane.' },
+  { id: 'rotatedStack', label: 'Rotated stack', expected: 'Root bounds expands to contain the same stack after rotation.' },
+  { id: 'nestedScaledStack', label: 'Nested scaled stack', expected: 'Root bounds contains the same inner stack after parent scale.' },
 ];
 
 export const demoSpecs: DemoSpec[] = [
@@ -764,6 +765,10 @@ export function getDemoSpec(id: string | null, caseId?: string | null): DemoSpec
   return resolveDemoCase(spec, caseId);
 }
 
+export function getDemoBaseSpec(id: string | null): DemoSpec {
+  return demoSpecs.find((demo) => demo.id === id) ?? demoSpecs[0];
+}
+
 export function getDemoCases(id: string | null): DemoCaseOption[] {
   return (demoSpecs.find((demo) => demo.id === id) ?? demoSpecs[0]).cases ?? [];
 }
@@ -882,6 +887,9 @@ function createAnchorOrientationCase(
       scale: init.scale,
     },
     children: [
+      plane('guidePlane', [132, 68], [118, 150, 255, 0.16], {
+        transform: { position: [-14, -18, 6] },
+      }),
       box('socket', [64, 30, 24], socketColor, {
         transform: { position: [0, 0, 14], rotation: [0, 0, socketRotation], pivot: [32, 15, 0] },
         anchors: {
@@ -941,6 +949,8 @@ function createPivotOriginCase(
     transform: { position: init.position },
     children: [
       box('base', [124, 34, 10], [75, 91, 150, 1], { transform: { position: [16, 66, 2] } }),
+      plane('pivotPlane', [112, 64], [118, 150, 255, 0.16], { transform: { position: [34, 20, 14] } }),
+      box('pivotAxis', [6, 6, 62], [244, 213, 98, 1], { transform: { position: [pivotPinPosition[0] + 2, pivotPinPosition[1] + 2, doorPosition[2] - 8] } }),
       box('pivotPin', [10, 10, 42], [244, 213, 98, 1], { transform: { position: pivotPinPosition } }),
       box('door', [92, 48, 16], doorColor, {
         transform: { position: doorPosition, rotation: [0, 0, doorRotation], pivot: init.pivot },
@@ -976,6 +986,9 @@ function createBoundsStackCase(
     modelName: 'bounds-stack',
     transform: { position: init.position, rotation: init.rotation, scale: init.scale },
     children: [
+      plane('boundsFootprint', [72, 68], [80, 200, 216, 0.18], { transform: { position: [-8, -34, 1] } }),
+      box('localXAxis', [82, 4, 4], [235, 90, 105, 1], { transform: { position: [-8, 6, 4] } }),
+      box('localYAxis', [4, 78, 4], [92, 222, 140, 1], { transform: { position: [26, -34, 5] } }),
       box('base', [56, 42, 32], baseColor, {
         faceColors: { top: lighten(baseColor, 18), front: darken(baseColor, 28) },
       }),
