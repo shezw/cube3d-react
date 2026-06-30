@@ -282,25 +282,34 @@ async function assertInteractiveWebSpaceBehavior(page: Page, demo: DemoSpec) {
 
   if (demo.id === 'content-callout') {
     await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', demo.callout!.initialPath);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-feedback-path', 'none');
+    await expectLocalTranslateZ(page, demo.callout!.initialPath, expectedLocalZ(demo, demo.callout!.initialPath));
     const initialX = Number(await page.locator('[data-callout]').getAttribute('data-callout-x'));
     const targetPath = 'content-callout/featureB';
     await page.locator(`[data-cube3d-path="${targetPath}"] [data-cube3d-face="top"]`).click({ force: true });
     await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', targetPath);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-feedback-path', targetPath);
     await expect(page.locator('[data-content-panel]')).toHaveAttribute('data-content-path', targetPath);
     await expectCameraState(page, demo.contentBindings!.find((binding) => binding.path === targetPath)!.camera!);
+    await expectLocalTranslateZ(page, targetPath, expectedLocalZ(demo, targetPath) + 12);
     const nextX = Number(await page.locator('[data-callout]').getAttribute('data-callout-x'));
     expect(Number.isFinite(nextX)).toBe(true);
     expect(nextX).not.toBe(initialX);
   }
 
   if (demo.id === 'interactive-cover-scene') {
+    await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', demo.callout!.initialPath);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-feedback-path', 'none');
+    await expectLocalTranslateZ(page, demo.callout!.initialPath, expectedLocalZ(demo, demo.callout!.initialPath));
     const targetPath = demo.characterReaction!.triggerPath;
     await page.locator(`[data-cube3d-path="${targetPath}"] [data-cube3d-face="top"]`).click({ force: true });
     await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-selected-path', targetPath);
+    await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-feedback-path', targetPath);
     await expect(page.locator('[data-demo-debug]')).toHaveAttribute('data-demo-character-state', demo.characterReaction!.reactionState);
     await expect(page.locator('[data-callout]')).toHaveAttribute('data-callout-path', targetPath);
     await expect(page.locator('[data-content-panel]')).toContainText('Interactive prop');
     await expectCameraState(page, demo.contentBindings!.find((binding) => binding.path === targetPath)!.camera!);
+    await expectLocalTranslateZ(page, targetPath, expectedLocalZ(demo, targetPath) + 12);
   }
 }
 
@@ -314,6 +323,19 @@ async function expectCameraState(page: Page, expected: NonNullable<DemoSpec['cam
   if (expected.zoom != null) {
     expect(state.zoom).toBe(expected.zoom);
   }
+}
+
+async function expectLocalTranslateZ(page: Page, path: string, expectedZ: number) {
+  const transform = await page.locator(`[data-cube3d-path="${path}"]`).evaluate((element) => (element as HTMLElement).style.transform);
+  const match = /translate3d\([^,]+,\s*[^,]+,\s*(-?\d+(?:\.\d+)?)px\)/.exec(transform);
+  expect(match, `${path} should expose translate3d z in ${transform}`).toBeTruthy();
+  expect(Number(match?.[1])).toBeCloseTo(expectedZ, 3);
+}
+
+function expectedLocalZ(demo: DemoSpec, path: string) {
+  const entry = flattenDesignNodes(demo.root).find((node) => node.path === path);
+  expect(entry, `${path} should exist in demo spec`).toBeTruthy();
+  return entry?.node.transform?.position?.[2] ?? 0;
 }
 
 async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {

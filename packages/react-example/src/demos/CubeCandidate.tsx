@@ -59,6 +59,7 @@ function CandidateContent({
   const [clicked, setClicked] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [hoveredPath, setHoveredPath] = useState<string | undefined>();
+  const [feedbackPath, setFeedbackPath] = useState('none');
   const [activeSection, setActiveSection] = useState(spec.cameraScroll?.sections[0]?.id ?? '');
   const [characterState, setCharacterState] = useState('idle');
   const interactivePaths = useMemo(
@@ -86,6 +87,7 @@ function CandidateContent({
             onClick={() => {
               setClicked(true);
               setActivePath('button-box/front');
+              setFeedbackPath('button-box/front');
             }}
           >
             click
@@ -100,7 +102,10 @@ function CandidateContent({
             style={faceButtonStyle}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
-            onClick={() => setActivePath('controller/front')}
+            onClick={() => {
+              setActivePath('controller/front');
+              setFeedbackPath('controller/front');
+            }}
           >
             grip
           </button>
@@ -108,7 +113,15 @@ function CandidateContent({
       },
       'html-sprite': {
         front: (
-          <button data-demo-action="sprite-button" type="button" onClick={() => setActivePath('html-sprite/button')} style={htmlButtonStyle}>
+          <button
+            data-demo-action="sprite-button"
+            type="button"
+            onClick={() => {
+              setActivePath('html-sprite/button');
+              setFeedbackPath('html-sprite/button');
+            }}
+            style={htmlButtonStyle}
+          >
             focusable html
           </button>
         ),
@@ -132,7 +145,7 @@ function CandidateContent({
         model={model}
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
-        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { activePath, hoveredPath, characterState }, spec)}
+        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { feedbackPath, hoveredPath, characterState }, spec)}
         interactivePaths={interactivePaths}
         onNodeClick={(event) => {
           if (spec.cameraFocus && event.path === spec.cameraFocus.interactivePath) {
@@ -143,6 +156,7 @@ function CandidateContent({
           const binding = spec.contentBindings?.find((item) => item.path === event.path);
           if (binding) {
             setActivePath(event.path);
+            setFeedbackPath(event.path);
             if (binding.camera) void camera.moveTo(toCameraState(binding.camera), { duration: 0 });
             if (binding.characterState) setCharacterState(binding.characterState);
           }
@@ -172,6 +186,7 @@ function CandidateContent({
         <div
           data-demo-debug
           data-demo-selected-path={activePath}
+          data-demo-feedback-path={feedbackPath}
           data-demo-character-state={characterState}
           data-demo-active-section={activeSection}
           style={debugPanelStyle}
@@ -269,13 +284,13 @@ function nodeFaceStyle(
 function nodeTransformOverride(
   node: SceneNode,
   path: string,
-  state: { activePath: string; hoveredPath?: string; characterState: string },
+  state: { feedbackPath: string; hoveredPath?: string; characterState: string },
   spec: DemoSpec,
 ) {
   if (spec.characterReaction && path === spec.characterReaction.characterPath && state.characterState === spec.characterReaction.reactionState) {
     return { position: { z: node.transform.position.z + 12 } };
   }
-  if (path === state.activePath && (spec.contentBindings || spec.callout || spec.interactiveCover)) {
+  if (path === state.feedbackPath && (spec.contentBindings || spec.callout || spec.interactiveCover)) {
     const lift = resolveMotionPreset('hoverLift', { active: true });
     return { position: { z: node.transform.position.z + (lift.position?.z ?? 0) } };
   }
