@@ -279,28 +279,19 @@ const standingCylinderNode = createCylinder8PanelNode('standingCylinder', {
 });
 
 const anchorOrientationCases: DesignModelNode[] = [
-  createAnchorOrientationCase('straightCase', {
+  createAnchorOrientationCase('positionOnlyControl', {
     position: [34, 48, 8],
-    socketRotation: 0,
-    socketAnchorRotation: 0,
-    plugAnchorRotation: 0,
-    color: [91, 140, 232, 1],
+    attachmentMode: 'position',
   }),
-  createAnchorOrientationCase('rotatedCase', {
+  createAnchorOrientationCase('orientationAttach', {
     position: [178, 56, 12],
-    socketRotation: -28,
-    socketAnchorRotation: 34,
-    plugAnchorRotation: -18,
-    color: [240, 169, 80, 1],
+    attachmentMode: 'position-orientation',
   }),
-  createAnchorOrientationCase('parentRotatedCase', {
+  createAnchorOrientationCase('orientationWithParentTransform', {
     position: [86, 188, 18],
     rotation: [0, 0, 28],
     scale: [1.12, 1.12, 1.12],
-    socketRotation: 18,
-    socketAnchorRotation: -32,
-    plugAnchorRotation: 24,
-    color: [70, 178, 104, 1],
+    attachmentMode: 'position-orientation',
   }),
 ];
 
@@ -308,20 +299,14 @@ const pivotOriginCases: DesignModelNode[] = [
   createPivotOriginCase('centerPivotCase', {
     position: [26, 56, 4],
     pivot: [46, 24, 0],
-    rotation: -46,
-    color: [91, 140, 232, 1],
   }),
   createPivotOriginCase('leftHingeCase', {
     position: [170, 60, 4],
     pivot: [0, 24, 0],
-    rotation: -58,
-    color: [226, 105, 135, 1],
   }),
   createPivotOriginCase('topHingeCase', {
     position: [96, 178, 8],
     pivot: [46, 0, 0],
-    rotation: 42,
-    color: [70, 178, 104, 1],
   }),
 ];
 
@@ -330,30 +315,23 @@ const worldBoundsCases: DesignModelNode[] = [
     position: [44, 82, 12],
     rotation: [0, 0, 0],
     scale: [1, 1, 1],
-    baseColor: [70, 178, 104, 1],
-    topColor: [121, 226, 173, 1],
   }),
   createBoundsStackCase('rotatedStack', {
     position: [146, 76, 12],
     rotation: [0, 0, -24],
-    scale: [1.04, 1.04, 1.04],
-    baseColor: [240, 169, 80, 1],
-    topColor: [246, 213, 98, 1],
+    scale: [1, 1, 1],
   }),
   {
     id: 'nestedScaledStack',
     kind: 'model',
     modelName: 'bounds-nested-case',
-    transform: { position: [220, 154, 12], rotation: [0, 0, 18], scale: [1.18, 1.18, 1.18] },
+    transform: { position: [220, 154, 12], rotation: [0, 0, 0], scale: [1.18, 1.18, 1.18] },
     children: [
       createBoundsStackCase('innerStack', {
         position: [0, 0, 0],
-        rotation: [0, 0, -14],
-        scale: [0.82, 0.82, 0.82],
-        baseColor: [78, 144, 188, 1],
-        topColor: [124, 169, 202, 1],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
       }),
-      box('satellite', [26, 26, 30], [233, 120, 163, 1], { transform: { position: [64, 20, 26] } }),
     ],
   },
 ];
@@ -499,31 +477,31 @@ export const demoSpecs: DemoSpec[] = [
       children: anchorOrientationCases,
     },
     requiredPaths: [
-      'anchor-orientation/straightCase/socket',
-      'anchor-orientation/straightCase/plug',
-      'anchor-orientation/straightCase/socketAxis',
-      'anchor-orientation/straightCase/plugAxis',
-      'anchor-orientation/rotatedCase/socket',
-      'anchor-orientation/rotatedCase/plug',
-      'anchor-orientation/rotatedCase/socketAxis',
-      'anchor-orientation/rotatedCase/plugAxis',
-      'anchor-orientation/parentRotatedCase/socket',
-      'anchor-orientation/parentRotatedCase/plug',
-      'anchor-orientation/parentRotatedCase/socketAxis',
-      'anchor-orientation/parentRotatedCase/plugAxis',
+      'anchor-orientation/positionOnlyControl/socket',
+      'anchor-orientation/positionOnlyControl/plug',
+      'anchor-orientation/positionOnlyControl/socketAxis',
+      'anchor-orientation/positionOnlyControl/plugAxis',
+      'anchor-orientation/orientationAttach/socket',
+      'anchor-orientation/orientationAttach/plug',
+      'anchor-orientation/orientationAttach/socketAxis',
+      'anchor-orientation/orientationAttach/plugAxis',
+      'anchor-orientation/orientationWithParentTransform/socket',
+      'anchor-orientation/orientationWithParentTransform/plug',
+      'anchor-orientation/orientationWithParentTransform/socketAxis',
+      'anchor-orientation/orientationWithParentTransform/plugAxis',
     ],
     projectionPaths: [
-      'anchor-orientation/straightCase/socket',
-      'anchor-orientation/straightCase/plug',
-      'anchor-orientation/rotatedCase/socket',
-      'anchor-orientation/rotatedCase/plug',
-      'anchor-orientation/parentRotatedCase/socket',
-      'anchor-orientation/parentRotatedCase/plug',
+      'anchor-orientation/positionOnlyControl/socket',
+      'anchor-orientation/positionOnlyControl/plug',
+      'anchor-orientation/orientationAttach/socket',
+      'anchor-orientation/orientationAttach/plug',
+      'anchor-orientation/orientationWithParentTransform/socket',
+      'anchor-orientation/orientationWithParentTransform/plug',
     ],
     anchorChecks: [
-      { aPath: 'anchor-orientation/straightCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/straightCase/plug', bAnchor: 'in', maxDistance: 2 },
-      { aPath: 'anchor-orientation/rotatedCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/rotatedCase/plug', bAnchor: 'in', maxDistance: 2 },
-      { aPath: 'anchor-orientation/parentRotatedCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/parentRotatedCase/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/positionOnlyControl/socket', aAnchor: 'out', bPath: 'anchor-orientation/positionOnlyControl/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/orientationAttach/socket', aAnchor: 'out', bPath: 'anchor-orientation/orientationAttach/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/orientationWithParentTransform/socket', aAnchor: 'out', bPath: 'anchor-orientation/orientationWithParentTransform/plug', bAnchor: 'in', maxDistance: 2 },
     ],
     modelCounts: { 'anchor-orientation': 1, 'anchor-orientation-case': 3 },
   },
@@ -571,7 +549,6 @@ export const demoSpecs: DemoSpec[] = [
       children: [
         box('floor', [286, 184, 10], [67, 80, 230, 1], { transform: { position: [24, 86, 0] } }),
         ...worldBoundsCases,
-        box('outerMarker', [24, 24, 24], [233, 120, 163, 1], { transform: { position: [282, 48, 18] } }),
       ],
     },
     requiredPaths: [
@@ -586,15 +563,12 @@ export const demoSpecs: DemoSpec[] = [
       'world-bounds/nestedScaledStack/innerStack',
       'world-bounds/nestedScaledStack/innerStack/base',
       'world-bounds/nestedScaledStack/innerStack/top',
-      'world-bounds/nestedScaledStack/satellite',
-      'world-bounds/outerMarker',
     ],
     projectionPaths: [
       'world-bounds/floor',
       'world-bounds/translatedStack',
       'world-bounds/rotatedStack',
       'world-bounds/nestedScaledStack',
-      'world-bounds/outerMarker',
     ],
     modelCounts: { 'world-bounds': 1, 'bounds-stack': 3, 'bounds-nested-case': 1 },
   },
@@ -803,12 +777,14 @@ function createAnchorOrientationCase(
     position: Vec3Tuple;
     rotation?: Vec3Tuple;
     scale?: Vec3Tuple;
-    socketRotation: number;
-    socketAnchorRotation: number;
-    plugAnchorRotation: number;
-    color: Rgba;
+    attachmentMode: 'position' | 'position-orientation';
   },
 ): DesignModelNode {
+  const socketRotation = -28;
+  const socketAnchorRotation = 34;
+  const plugAnchorRotation = -18;
+  const socketColor: Rgba = [91, 140, 232, 1];
+  const plugColor: Rgba = [240, 169, 80, 1];
   return {
     id,
     kind: 'model',
@@ -819,24 +795,24 @@ function createAnchorOrientationCase(
       scale: init.scale,
     },
     children: [
-      box('socket', [64, 30, 24], init.color, {
-        transform: { position: [0, 0, 14], rotation: [0, 0, init.socketRotation], pivot: [32, 15, 0] },
+      box('socket', [64, 30, 24], socketColor, {
+        transform: { position: [0, 0, 14], rotation: [0, 0, socketRotation], pivot: [32, 15, 0] },
         anchors: {
           out: {
             position: [64, 15, 24],
-            rotation: [0, 0, init.socketAnchorRotation],
+            rotation: [0, 0, socketAnchorRotation],
             normal: [1, 0, 0],
             tangent: [0, 1, 0],
           },
         },
-        faceColors: { top: lighten(init.color, 24), front: darken(init.color, 28) },
+        faceColors: { top: lighten(socketColor, 24), front: darken(socketColor, 28) },
       }),
-      box('plug', [44, 22, 22], [240, 169, 80, 1], {
+      box('plug', [44, 22, 22], plugColor, {
         transform: { pivot: [22, 11, 0] },
         anchors: {
           in: {
             position: [0, 11, 22],
-            rotation: [0, 0, init.plugAnchorRotation],
+            rotation: [0, 0, plugAnchorRotation],
             normal: [1, 0, 0],
             tangent: [0, 1, 0],
           },
@@ -844,14 +820,14 @@ function createAnchorOrientationCase(
         faceColors: { top: [255, 193, 101, 1], front: [204, 125, 52, 1] },
       }),
       plane('socketAxis', [46, 5], [93, 232, 170, 1], {
-        transform: { position: [66, 13, 46], rotation: [0, 0, init.socketRotation + init.socketAnchorRotation] },
+        transform: { position: [66, 13, 46], rotation: [0, 0, socketRotation + socketAnchorRotation] },
       }),
       plane('plugAxis', [46, 5], [93, 232, 170, 0.72], {
-        transform: { position: [100, 13, 48], rotation: [0, 0, init.socketRotation + init.socketAnchorRotation] },
+        transform: { position: [100, 13, 48], rotation: [0, 0, socketRotation + socketAnchorRotation] },
       }),
     ],
     attachments: [
-      { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
+      { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: init.attachmentMode },
     ],
   };
 }
@@ -861,10 +837,10 @@ function createPivotOriginCase(
   init: {
     position: Vec3Tuple;
     pivot: Vec3Tuple;
-    rotation: number;
-    color: Rgba;
   },
 ): DesignModelNode {
+  const doorColor: Rgba = [91, 140, 232, 1];
+  const doorRotation = -46;
   const doorPosition: Vec3Tuple = [44, 28, 20];
   const pivotPinPosition: Vec3Tuple = [
     doorPosition[0] + init.pivot[0] - 5,
@@ -879,13 +855,13 @@ function createPivotOriginCase(
     children: [
       box('base', [124, 34, 10], [75, 91, 150, 1], { transform: { position: [16, 66, 2] } }),
       box('pivotPin', [10, 10, 42], [244, 213, 98, 1], { transform: { position: pivotPinPosition } }),
-      box('door', [92, 48, 16], init.color, {
-        transform: { position: doorPosition, rotation: [0, 0, init.rotation], pivot: init.pivot },
+      box('door', [92, 48, 16], doorColor, {
+        transform: { position: doorPosition, rotation: [0, 0, doorRotation], pivot: init.pivot },
         anchors: {
           pivot: { position: [init.pivot[0], init.pivot[1], 8], normal: [0, 0, 1], tangent: [1, 0, 0] },
           handle: { position: [82, 24, 16], normal: [1, 0, 0], tangent: [0, 1, 0] },
         },
-        faceColors: { top: lighten(init.color, 24), front: darken(init.color, 32) },
+        faceColors: { top: lighten(doorColor, 24), front: darken(doorColor, 32) },
       }),
       box('handle', [12, 12, 12], [238, 222, 198, 1], {
         anchors: { mount: [6, 6, 6] },
@@ -903,22 +879,22 @@ function createBoundsStackCase(
     position: Vec3Tuple;
     rotation: Vec3Tuple;
     scale: Vec3Tuple;
-    baseColor: Rgba;
-    topColor: Rgba;
   },
 ): DesignModelNode {
+  const baseColor: Rgba = [70, 178, 104, 1];
+  const topColor: Rgba = [121, 226, 173, 1];
   return {
     id,
     kind: 'model',
     modelName: 'bounds-stack',
     transform: { position: init.position, rotation: init.rotation, scale: init.scale },
     children: [
-      box('base', [56, 42, 32], init.baseColor, {
-        faceColors: { top: lighten(init.baseColor, 18), front: darken(init.baseColor, 28) },
+      box('base', [56, 42, 32], baseColor, {
+        faceColors: { top: lighten(baseColor, 18), front: darken(baseColor, 28) },
       }),
-      box('top', [34, 34, 46], init.topColor, {
+      box('top', [34, 34, 46], topColor, {
         transform: { position: [12, -28, 32] },
-        faceColors: { top: lighten(init.topColor, 16), front: darken(init.topColor, 24) },
+        faceColors: { top: lighten(topColor, 16), front: darken(topColor, 24) },
       }),
     ],
   };

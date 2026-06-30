@@ -180,6 +180,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     await expectTrueCylinderReference(page, cylinderPaths);
   }
   if (demo.id === 'anchor-orientation') {
+    assertControlledAnchorComparison(demo);
     assertAnchorOrientationSpec(demo);
     for (const caseId of anchorOrientationCaseIds) {
       await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socket"] [data-cube3d-anchor="out"]`)).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
@@ -188,6 +189,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     }
   }
   if (demo.id === 'pivot-origin') {
+    assertControlledPivotComparison(demo);
     assertPivotSpec(demo);
     for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
       const path = `pivot-origin/${caseId}/door`;
@@ -199,6 +201,7 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
     }
   }
   if (demo.id === 'world-bounds') {
+    assertControlledWorldBoundsComparison(demo);
     assertWorldBoundsSpec(demo);
     await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(3);
     await expect(page.locator('[data-cube3d-model="bounds-nested-case"]')).toHaveCount(1);
@@ -311,7 +314,8 @@ async function expectSolidTextReferenceFonts(page: Page, expectedRows: Array<{ p
   }
 }
 
-const anchorOrientationCaseIds = ['straightCase', 'rotatedCase', 'parentRotatedCase'] as const;
+const anchorOrientationCaseIds = ['positionOnlyControl', 'orientationAttach', 'orientationWithParentTransform'] as const;
+const anchorOrientationAlignedCaseIds = ['orientationAttach', 'orientationWithParentTransform'] as const;
 const pivotCasePivots: Record<string, [number, number, number]> = {
   centerPivotCase: [46, 24, 0],
   leftHingeCase: [0, 24, 0],
@@ -322,8 +326,88 @@ const worldBoundsCasePaths = [
   'world-bounds/rotatedStack',
   'world-bounds/nestedScaledStack',
   'world-bounds/nestedScaledStack/innerStack',
-  'world-bounds/outerMarker',
 ] as const;
+
+function assertControlledAnchorComparison(demo: DemoSpec) {
+  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
+  const templateSocket = primitiveAt(nodes, 'anchor-orientation/positionOnlyControl/socket');
+  const templatePlug = primitiveAt(nodes, 'anchor-orientation/positionOnlyControl/plug');
+
+  for (const caseId of anchorOrientationCaseIds) {
+    const caseNode = modelAt(nodes, `anchor-orientation/${caseId}`);
+    const socket = primitiveAt(nodes, `anchor-orientation/${caseId}/socket`);
+    const plug = primitiveAt(nodes, `anchor-orientation/${caseId}/plug`);
+    expect(socket.size, `${caseId} socket size should match template`).toEqual(templateSocket.size);
+    expect(socket.color, `${caseId} socket color should match template`).toEqual(templateSocket.color);
+    expect(socket.transform, `${caseId} socket transform should match template`).toEqual(templateSocket.transform);
+    expect(socket.anchors, `${caseId} socket anchors should match template`).toEqual(templateSocket.anchors);
+    expect(plug.size, `${caseId} plug size should match template`).toEqual(templatePlug.size);
+    expect(plug.color, `${caseId} plug color should match template`).toEqual(templatePlug.color);
+    expect(plug.transform, `${caseId} plug transform should match template`).toEqual(templatePlug.transform);
+    expect(plug.anchors, `${caseId} plug anchors should match template`).toEqual(templatePlug.anchors);
+    expect(caseNode.attachments).toHaveLength(1);
+  }
+
+  expect(modelAt(nodes, 'anchor-orientation/positionOnlyControl').attachments?.[0].mode).toBe('position');
+  expect(modelAt(nodes, 'anchor-orientation/orientationAttach').attachments?.[0].mode).toBe('position-orientation');
+  expect(modelAt(nodes, 'anchor-orientation/orientationWithParentTransform').attachments?.[0].mode).toBe('position-orientation');
+  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/positionOnlyControl').transform)).toEqual({});
+  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/orientationAttach').transform)).toEqual({});
+  expect(stripLayoutPosition(modelAt(nodes, 'anchor-orientation/orientationWithParentTransform').transform)).toEqual({
+    rotation: [0, 0, 28],
+    scale: [1.12, 1.12, 1.12],
+  });
+}
+
+function assertControlledPivotComparison(demo: DemoSpec) {
+  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
+  const templateDoor = primitiveAt(nodes, 'pivot-origin/centerPivotCase/door');
+  const templateBase = primitiveAt(nodes, 'pivot-origin/centerPivotCase/base');
+  const templateHandle = primitiveAt(nodes, 'pivot-origin/centerPivotCase/handle');
+
+  for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
+    const caseNode = modelAt(nodes, `pivot-origin/${caseId}`);
+    const door = primitiveAt(nodes, `pivot-origin/${caseId}/door`);
+    const base = primitiveAt(nodes, `pivot-origin/${caseId}/base`);
+    const handle = primitiveAt(nodes, `pivot-origin/${caseId}/handle`);
+    expect(base.size, `${caseId} base size should match template`).toEqual(templateBase.size);
+    expect(base.color, `${caseId} base color should match template`).toEqual(templateBase.color);
+    expect(handle.size, `${caseId} handle size should match template`).toEqual(templateHandle.size);
+    expect(handle.anchors, `${caseId} handle anchors should match template`).toEqual(templateHandle.anchors);
+    expect(door.size, `${caseId} door size should match template`).toEqual(templateDoor.size);
+    expect(door.color, `${caseId} door color should match template`).toEqual(templateDoor.color);
+    expect({ ...door.transform, pivot: undefined }, `${caseId} door transform except pivot`).toEqual({ ...templateDoor.transform, pivot: undefined });
+    expect(door.transform?.pivot, `${caseId} only pivot should differ`).toEqual(pivot);
+    expect(caseNode.attachments).toEqual([{ childId: 'handle', childAnchor: 'mount', parentId: 'door', parentAnchor: 'handle' }]);
+  }
+}
+
+function assertControlledWorldBoundsComparison(demo: DemoSpec) {
+  const nodes = new Map(flattenDesignNodes(demo.root).map((entry) => [entry.path, entry.node]));
+  const stackPaths = [
+    'world-bounds/translatedStack',
+    'world-bounds/rotatedStack',
+    'world-bounds/nestedScaledStack/innerStack',
+  ];
+  const templateBase = primitiveAt(nodes, `${stackPaths[0]}/base`);
+  const templateTop = primitiveAt(nodes, `${stackPaths[0]}/top`);
+
+  for (const path of stackPaths) {
+    const base = primitiveAt(nodes, `${path}/base`);
+    const top = primitiveAt(nodes, `${path}/top`);
+    expect(base.size, `${path} base size should match template`).toEqual(templateBase.size);
+    expect(base.color, `${path} base color should match template`).toEqual(templateBase.color);
+    expect(base.faceColors, `${path} base face colors should match template`).toEqual(templateBase.faceColors);
+    expect(top.size, `${path} top size should match template`).toEqual(templateTop.size);
+    expect(top.color, `${path} top color should match template`).toEqual(templateTop.color);
+    expect(top.transform, `${path} top local transform should match template`).toEqual(templateTop.transform);
+  }
+
+  expect(modelAt(nodes, 'world-bounds/translatedStack').transform).toEqual({ position: [44, 82, 12], rotation: [0, 0, 0], scale: [1, 1, 1] });
+  expect(modelAt(nodes, 'world-bounds/rotatedStack').transform).toEqual({ position: [146, 76, 12], rotation: [0, 0, -24], scale: [1, 1, 1] });
+  expect(modelAt(nodes, 'world-bounds/nestedScaledStack').transform).toEqual({ position: [220, 154, 12], rotation: [0, 0, 0], scale: [1.18, 1.18, 1.18] });
+  expect(modelAt(nodes, 'world-bounds/nestedScaledStack/innerStack').transform).toEqual({ position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] });
+}
 
 function assertAnchorOrientationSpec(demo: DemoSpec) {
   const world = resolveScene(createSceneFromSpec(demo));
@@ -335,9 +419,16 @@ function assertAnchorOrientationSpec(demo: DemoSpec) {
     expect(plug!.position.x, `${caseId} x`).toBeCloseTo(socket!.position.x, 3);
     expect(plug!.position.y, `${caseId} y`).toBeCloseTo(socket!.position.y, 3);
     expect(plug!.position.z, `${caseId} z`).toBeCloseTo(socket!.position.z, 3);
+  }
+  for (const caseId of anchorOrientationAlignedCaseIds) {
+    const socket = findWorldNode(world, `anchor-orientation/${caseId}/socket`)?.worldAnchors.out;
+    const plug = findWorldNode(world, `anchor-orientation/${caseId}/plug`)?.worldAnchors.in;
     expect(angleBetweenVec3(socket!.normal!, plug!.normal!), `${caseId} normal alignment`).toBeLessThan(0.001);
     expect(angleBetweenVec3(socket!.tangent!, plug!.tangent!), `${caseId} tangent alignment`).toBeLessThan(0.001);
   }
+  const controlSocket = findWorldNode(world, 'anchor-orientation/positionOnlyControl/socket')?.worldAnchors.out;
+  const controlPlug = findWorldNode(world, 'anchor-orientation/positionOnlyControl/plug')?.worldAnchors.in;
+  expect(angleBetweenVec3(controlSocket!.normal!, controlPlug!.normal!), 'position-only control should not align normal').toBeGreaterThan(0.1);
 }
 
 function assertPivotSpec(demo: DemoSpec) {
@@ -377,6 +468,26 @@ function assertWorldBoundsSpec(demo: DemoSpec) {
   const nested = byPath.get('world-bounds/nestedScaledStack');
   expect(translated?.center?.x).toBeLessThan(rotated?.center?.x ?? 0);
   expect(rotated?.center?.x).toBeLessThan(nested?.center?.x ?? 0);
+}
+
+function primitiveAt(nodes: Map<string, ReturnType<typeof flattenDesignNodes>[number]['node']>, path: string) {
+  const node = nodes.get(path);
+  expect(node?.kind, `${path} should be primitive`).not.toBe('model');
+  if (!node || node.kind === 'model') throw new Error(`${path} missing primitive`);
+  return node;
+}
+
+function modelAt(nodes: Map<string, ReturnType<typeof flattenDesignNodes>[number]['node']>, path: string) {
+  const node = nodes.get(path);
+  expect(node?.kind, `${path} should be model`).toBe('model');
+  if (!node || node.kind !== 'model') throw new Error(`${path} missing model`);
+  return node;
+}
+
+function stripLayoutPosition<T extends { position?: unknown } | undefined>(transform: T) {
+  if (!transform) return {};
+  const { position: _position, ...rest } = transform;
+  return rest;
 }
 
 function rootContains(
