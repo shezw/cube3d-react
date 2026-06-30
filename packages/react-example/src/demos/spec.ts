@@ -278,6 +278,86 @@ const standingCylinderNode = createCylinder8PanelNode('standingCylinder', {
   bottomColor: [47, 143, 96, 1],
 });
 
+const anchorOrientationCases: DesignModelNode[] = [
+  createAnchorOrientationCase('straightCase', {
+    position: [34, 48, 8],
+    socketRotation: 0,
+    socketAnchorRotation: 0,
+    plugAnchorRotation: 0,
+    color: [91, 140, 232, 1],
+  }),
+  createAnchorOrientationCase('rotatedCase', {
+    position: [178, 56, 12],
+    socketRotation: -28,
+    socketAnchorRotation: 34,
+    plugAnchorRotation: -18,
+    color: [240, 169, 80, 1],
+  }),
+  createAnchorOrientationCase('parentRotatedCase', {
+    position: [86, 188, 18],
+    rotation: [0, 0, 28],
+    scale: [1.12, 1.12, 1.12],
+    socketRotation: 18,
+    socketAnchorRotation: -32,
+    plugAnchorRotation: 24,
+    color: [70, 178, 104, 1],
+  }),
+];
+
+const pivotOriginCases: DesignModelNode[] = [
+  createPivotOriginCase('centerPivotCase', {
+    position: [26, 56, 4],
+    pivot: [46, 24, 0],
+    rotation: -46,
+    color: [91, 140, 232, 1],
+  }),
+  createPivotOriginCase('leftHingeCase', {
+    position: [170, 60, 4],
+    pivot: [0, 24, 0],
+    rotation: -58,
+    color: [226, 105, 135, 1],
+  }),
+  createPivotOriginCase('topHingeCase', {
+    position: [96, 178, 8],
+    pivot: [46, 0, 0],
+    rotation: 42,
+    color: [70, 178, 104, 1],
+  }),
+];
+
+const worldBoundsCases: DesignModelNode[] = [
+  createBoundsStackCase('translatedStack', {
+    position: [44, 82, 12],
+    rotation: [0, 0, 0],
+    scale: [1, 1, 1],
+    baseColor: [70, 178, 104, 1],
+    topColor: [121, 226, 173, 1],
+  }),
+  createBoundsStackCase('rotatedStack', {
+    position: [146, 76, 12],
+    rotation: [0, 0, -24],
+    scale: [1.04, 1.04, 1.04],
+    baseColor: [240, 169, 80, 1],
+    topColor: [246, 213, 98, 1],
+  }),
+  {
+    id: 'nestedScaledStack',
+    kind: 'model',
+    modelName: 'bounds-nested-case',
+    transform: { position: [220, 154, 12], rotation: [0, 0, 18], scale: [1.18, 1.18, 1.18] },
+    children: [
+      createBoundsStackCase('innerStack', {
+        position: [0, 0, 0],
+        rotation: [0, 0, -14],
+        scale: [0.82, 0.82, 0.82],
+        baseColor: [78, 144, 188, 1],
+        topColor: [124, 169, 202, 1],
+      }),
+      box('satellite', [26, 26, 30], [233, 120, 163, 1], { transform: { position: [64, 20, 26] } }),
+    ],
+  },
+];
+
 export const demoSpecs: DemoSpec[] = [
   {
     id: 'primitive-lab',
@@ -410,129 +490,113 @@ export const demoSpecs: DemoSpec[] = [
   {
     id: 'anchor-orientation',
     title: 'Anchor Orientation',
-    capability: 'anchor position, normal and tangent alignment',
+    capability: 'anchor position, normal and tangent alignment across rotated subcases',
     maxDiffRatio: 0.14,
     root: {
       id: 'anchor-orientation',
       kind: 'model',
       modelName: 'anchor-orientation',
-      children: [
-        box('socket', [72, 36, 24], [91, 140, 232, 1], {
-          transform: { position: [78, 118, 18], rotation: [0, 0, -18], pivot: [36, 18, 0] },
-          anchors: {
-            out: {
-              position: [72, 18, 24],
-              rotation: [0, 0, 22],
-              normal: [1, 0, 0],
-              tangent: [0, 1, 0],
-            },
-          },
-          faceColors: { top: [122, 160, 248, 1], front: [62, 93, 184, 1] },
-        }),
-        box('plug', [54, 28, 22], [240, 169, 80, 1], {
-          transform: { pivot: [27, 14, 0] },
-          anchors: {
-            in: {
-              position: [0, 14, 22],
-              rotation: [0, 0, -8],
-              normal: [1, 0, 0],
-              tangent: [0, 1, 0],
-            },
-          },
-          faceColors: { top: [255, 193, 101, 1], front: [204, 125, 52, 1] },
-        }),
-        plane('socketNormal', [46, 6], [93, 232, 170, 1], { transform: { position: [140, 107, 48], rotation: [0, 0, 4] } }),
-        plane('plugNormal', [46, 6], [93, 232, 170, 0.72], { transform: { position: [166, 120, 50], rotation: [0, 0, 4] } }),
-      ],
-      attachments: [
-        { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
-      ],
+      children: anchorOrientationCases,
     },
     requiredPaths: [
-      'anchor-orientation/socket',
-      'anchor-orientation/plug',
-      'anchor-orientation/socketNormal',
-      'anchor-orientation/plugNormal',
+      'anchor-orientation/straightCase/socket',
+      'anchor-orientation/straightCase/plug',
+      'anchor-orientation/straightCase/socketAxis',
+      'anchor-orientation/straightCase/plugAxis',
+      'anchor-orientation/rotatedCase/socket',
+      'anchor-orientation/rotatedCase/plug',
+      'anchor-orientation/rotatedCase/socketAxis',
+      'anchor-orientation/rotatedCase/plugAxis',
+      'anchor-orientation/parentRotatedCase/socket',
+      'anchor-orientation/parentRotatedCase/plug',
+      'anchor-orientation/parentRotatedCase/socketAxis',
+      'anchor-orientation/parentRotatedCase/plugAxis',
     ],
-    projectionPaths: ['anchor-orientation/socket', 'anchor-orientation/plug'],
+    projectionPaths: [
+      'anchor-orientation/straightCase/socket',
+      'anchor-orientation/straightCase/plug',
+      'anchor-orientation/rotatedCase/socket',
+      'anchor-orientation/rotatedCase/plug',
+      'anchor-orientation/parentRotatedCase/socket',
+      'anchor-orientation/parentRotatedCase/plug',
+    ],
     anchorChecks: [
-      { aPath: 'anchor-orientation/socket', aAnchor: 'out', bPath: 'anchor-orientation/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/straightCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/straightCase/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/rotatedCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/rotatedCase/plug', bAnchor: 'in', maxDistance: 2 },
+      { aPath: 'anchor-orientation/parentRotatedCase/socket', aAnchor: 'out', bPath: 'anchor-orientation/parentRotatedCase/plug', bAnchor: 'in', maxDistance: 2 },
     ],
-    modelCounts: { 'anchor-orientation': 1 },
+    modelCounts: { 'anchor-orientation': 1, 'anchor-orientation-case': 3 },
   },
   {
     id: 'pivot-origin',
     title: 'Pivot Origin',
-    capability: 'explicit pivot/origin for local model rotation',
+    capability: 'explicit pivot/origin comparison across rotation axes',
     maxDiffRatio: 0.14,
     root: {
       id: 'pivot-origin',
       kind: 'model',
       modelName: 'pivot-origin',
-      children: [
-        box('base', [172, 36, 12], [75, 91, 150, 1], { transform: { position: [70, 146, 4] } }),
-        box('hinge', [18, 54, 38], [226, 190, 148, 1], { transform: { position: [132, 112, 16] } }),
-        box('door', [92, 48, 16], [226, 105, 135, 1], {
-          transform: { position: [132, 115, 20], rotation: [0, 0, -58], pivot: [0, 24, 0] },
-          anchors: {
-            hinge: { position: [0, 24, 8], normal: [-1, 0, 0], tangent: [0, 1, 0] },
-            handle: { position: [82, 24, 16], normal: [1, 0, 0], tangent: [0, 1, 0] },
-          },
-          faceColors: { top: [247, 133, 161, 1], front: [189, 70, 104, 1] },
-        }),
-        box('handle', [12, 12, 12], [244, 213, 98, 1], { transform: { position: [192, 68, 42] } }),
-      ],
+      children: pivotOriginCases,
     },
-    requiredPaths: ['pivot-origin/base', 'pivot-origin/hinge', 'pivot-origin/door', 'pivot-origin/handle'],
-    projectionPaths: ['pivot-origin/base', 'pivot-origin/hinge', 'pivot-origin/door'],
-    modelCounts: { 'pivot-origin': 1 },
+    requiredPaths: [
+      'pivot-origin/centerPivotCase/base',
+      'pivot-origin/centerPivotCase/pivotPin',
+      'pivot-origin/centerPivotCase/door',
+      'pivot-origin/centerPivotCase/handle',
+      'pivot-origin/leftHingeCase/base',
+      'pivot-origin/leftHingeCase/pivotPin',
+      'pivot-origin/leftHingeCase/door',
+      'pivot-origin/leftHingeCase/handle',
+      'pivot-origin/topHingeCase/base',
+      'pivot-origin/topHingeCase/pivotPin',
+      'pivot-origin/topHingeCase/door',
+      'pivot-origin/topHingeCase/handle',
+    ],
+    projectionPaths: [
+      'pivot-origin/centerPivotCase/door',
+      'pivot-origin/leftHingeCase/door',
+      'pivot-origin/topHingeCase/door',
+    ],
+    modelCounts: { 'pivot-origin': 1, 'pivot-origin-case': 3 },
   },
   {
     id: 'world-bounds',
     title: 'World Bounds',
-    capability: 'resolved world bounds and spatial object query',
+    capability: 'resolved world bounds and spatial object query across nested transforms',
     maxDiffRatio: 0.14,
     root: {
       id: 'world-bounds',
       kind: 'model',
       modelName: 'world-bounds',
       children: [
-        box('floor', [244, 154, 10], [67, 80, 230, 1], { transform: { position: [42, 92, 0] } }),
-        {
-          id: 'leftStack',
-          kind: 'model',
-          modelName: 'bounds-stack',
-          transform: { position: [72, 82, 12], rotation: [0, 0, -8] },
-          children: [
-            box('base', [54, 42, 32], [70, 178, 104, 1]),
-            box('top', [34, 34, 46], [121, 226, 173, 1], { transform: { position: [12, -28, 32] } }),
-          ],
-        },
-        {
-          id: 'rightStack',
-          kind: 'model',
-          modelName: 'bounds-stack',
-          transform: { position: [178, 82, 12], rotation: [0, 0, 12], scale: [1.12, 1.12, 1.12] },
-          children: [
-            box('base', [62, 46, 36], [240, 169, 80, 1]),
-            box('top', [44, 32, 52], [246, 213, 98, 1], { transform: { position: [10, -30, 36] } }),
-          ],
-        },
-        box('marker', [24, 24, 24], [233, 120, 163, 1], { transform: { position: [254, 58, 18] } }),
+        box('floor', [286, 184, 10], [67, 80, 230, 1], { transform: { position: [24, 86, 0] } }),
+        ...worldBoundsCases,
+        box('outerMarker', [24, 24, 24], [233, 120, 163, 1], { transform: { position: [282, 48, 18] } }),
       ],
     },
     requiredPaths: [
       'world-bounds/floor',
-      'world-bounds/leftStack',
-      'world-bounds/leftStack/base',
-      'world-bounds/leftStack/top',
-      'world-bounds/rightStack',
-      'world-bounds/rightStack/base',
-      'world-bounds/rightStack/top',
-      'world-bounds/marker',
+      'world-bounds/translatedStack',
+      'world-bounds/translatedStack/base',
+      'world-bounds/translatedStack/top',
+      'world-bounds/rotatedStack',
+      'world-bounds/rotatedStack/base',
+      'world-bounds/rotatedStack/top',
+      'world-bounds/nestedScaledStack',
+      'world-bounds/nestedScaledStack/innerStack',
+      'world-bounds/nestedScaledStack/innerStack/base',
+      'world-bounds/nestedScaledStack/innerStack/top',
+      'world-bounds/nestedScaledStack/satellite',
+      'world-bounds/outerMarker',
     ],
-    projectionPaths: ['world-bounds/floor', 'world-bounds/leftStack', 'world-bounds/rightStack', 'world-bounds/marker'],
-    modelCounts: { 'world-bounds': 1, 'bounds-stack': 2 },
+    projectionPaths: [
+      'world-bounds/floor',
+      'world-bounds/translatedStack',
+      'world-bounds/rotatedStack',
+      'world-bounds/nestedScaledStack',
+      'world-bounds/outerMarker',
+    ],
+    modelCounts: { 'world-bounds': 1, 'bounds-stack': 3, 'bounds-nested-case': 1 },
   },
   {
     id: 'transform-room',
@@ -733,6 +797,133 @@ function extrude(
   return { id, kind: 'extrude', size, color, ...options };
 }
 
+function createAnchorOrientationCase(
+  id: string,
+  init: {
+    position: Vec3Tuple;
+    rotation?: Vec3Tuple;
+    scale?: Vec3Tuple;
+    socketRotation: number;
+    socketAnchorRotation: number;
+    plugAnchorRotation: number;
+    color: Rgba;
+  },
+): DesignModelNode {
+  return {
+    id,
+    kind: 'model',
+    modelName: 'anchor-orientation-case',
+    transform: {
+      position: init.position,
+      rotation: init.rotation,
+      scale: init.scale,
+    },
+    children: [
+      box('socket', [64, 30, 24], init.color, {
+        transform: { position: [0, 0, 14], rotation: [0, 0, init.socketRotation], pivot: [32, 15, 0] },
+        anchors: {
+          out: {
+            position: [64, 15, 24],
+            rotation: [0, 0, init.socketAnchorRotation],
+            normal: [1, 0, 0],
+            tangent: [0, 1, 0],
+          },
+        },
+        faceColors: { top: lighten(init.color, 24), front: darken(init.color, 28) },
+      }),
+      box('plug', [44, 22, 22], [240, 169, 80, 1], {
+        transform: { pivot: [22, 11, 0] },
+        anchors: {
+          in: {
+            position: [0, 11, 22],
+            rotation: [0, 0, init.plugAnchorRotation],
+            normal: [1, 0, 0],
+            tangent: [0, 1, 0],
+          },
+        },
+        faceColors: { top: [255, 193, 101, 1], front: [204, 125, 52, 1] },
+      }),
+      plane('socketAxis', [46, 5], [93, 232, 170, 1], {
+        transform: { position: [66, 13, 46], rotation: [0, 0, init.socketRotation + init.socketAnchorRotation] },
+      }),
+      plane('plugAxis', [46, 5], [93, 232, 170, 0.72], {
+        transform: { position: [100, 13, 48], rotation: [0, 0, init.socketRotation + init.socketAnchorRotation] },
+      }),
+    ],
+    attachments: [
+      { childId: 'plug', childAnchor: 'in', parentId: 'socket', parentAnchor: 'out', mode: 'position-orientation' },
+    ],
+  };
+}
+
+function createPivotOriginCase(
+  id: string,
+  init: {
+    position: Vec3Tuple;
+    pivot: Vec3Tuple;
+    rotation: number;
+    color: Rgba;
+  },
+): DesignModelNode {
+  const doorPosition: Vec3Tuple = [44, 28, 20];
+  const pivotPinPosition: Vec3Tuple = [
+    doorPosition[0] + init.pivot[0] - 5,
+    doorPosition[1] + init.pivot[1] - 5,
+    doorPosition[2] + 18,
+  ];
+  return {
+    id,
+    kind: 'model',
+    modelName: 'pivot-origin-case',
+    transform: { position: init.position },
+    children: [
+      box('base', [124, 34, 10], [75, 91, 150, 1], { transform: { position: [16, 66, 2] } }),
+      box('pivotPin', [10, 10, 42], [244, 213, 98, 1], { transform: { position: pivotPinPosition } }),
+      box('door', [92, 48, 16], init.color, {
+        transform: { position: doorPosition, rotation: [0, 0, init.rotation], pivot: init.pivot },
+        anchors: {
+          pivot: { position: [init.pivot[0], init.pivot[1], 8], normal: [0, 0, 1], tangent: [1, 0, 0] },
+          handle: { position: [82, 24, 16], normal: [1, 0, 0], tangent: [0, 1, 0] },
+        },
+        faceColors: { top: lighten(init.color, 24), front: darken(init.color, 32) },
+      }),
+      box('handle', [12, 12, 12], [238, 222, 198, 1], {
+        anchors: { mount: [6, 6, 6] },
+      }),
+    ],
+    attachments: [
+      { childId: 'handle', childAnchor: 'mount', parentId: 'door', parentAnchor: 'handle' },
+    ],
+  };
+}
+
+function createBoundsStackCase(
+  id: string,
+  init: {
+    position: Vec3Tuple;
+    rotation: Vec3Tuple;
+    scale: Vec3Tuple;
+    baseColor: Rgba;
+    topColor: Rgba;
+  },
+): DesignModelNode {
+  return {
+    id,
+    kind: 'model',
+    modelName: 'bounds-stack',
+    transform: { position: init.position, rotation: init.rotation, scale: init.scale },
+    children: [
+      box('base', [56, 42, 32], init.baseColor, {
+        faceColors: { top: lighten(init.baseColor, 18), front: darken(init.baseColor, 28) },
+      }),
+      box('top', [34, 34, 46], init.topColor, {
+        transform: { position: [12, -28, 32] },
+        faceColors: { top: lighten(init.topColor, 16), front: darken(init.topColor, 24) },
+      }),
+    ],
+  };
+}
+
 function createCylinder8PanelNode(
   id: string,
   init: {
@@ -812,4 +1003,16 @@ function regularPolygonApothem(sideLength: number, segments: number) {
 
 function roundGeometry(value: number) {
   return Number(value.toFixed(3));
+}
+
+function lighten(color: Rgba, amount: number): Rgba {
+  return [clampColor(color[0] + amount), clampColor(color[1] + amount), clampColor(color[2] + amount), color[3]];
+}
+
+function darken(color: Rgba, amount: number): Rgba {
+  return [clampColor(color[0] - amount), clampColor(color[1] - amount), clampColor(color[2] - amount), color[3]];
+}
+
+function clampColor(value: number) {
+  return Math.max(0, Math.min(255, value));
 }

@@ -81,4 +81,53 @@ describe('@cube3d/core anchor orientation', () => {
     expect(scene.children[1].node.transform.rotation.z).toBeCloseTo(65, 4);
     expect(angleBetweenVec3(socket.normal!, plug.normal!)).toBeLessThan(0.001);
   });
+
+  it('keeps orientation attachments aligned across multiple rotated comparison cases', () => {
+    const cases = [
+      { id: 'straight', parentRotation: 0, socketAnchorRotation: 0, plugAnchorRotation: 0 },
+      { id: 'rotated', parentRotation: -28, socketAnchorRotation: 34, plugAnchorRotation: -18 },
+      { id: 'counterRotated', parentRotation: 42, socketAnchorRotation: -26, plugAnchorRotation: 16 },
+    ];
+
+    for (const item of cases) {
+      const model = defineModel(`connector-${item.id}`, [
+        part('socket', boxPrimitive({ size: { x: 64, y: 30, z: 24 } }), {
+          transform: { position: { x: 80, y: 40, z: 8 }, rotation: { z: item.parentRotation }, pivot: { x: 32, y: 15, z: 0 } },
+          anchors: {
+            out: {
+              id: 'out',
+              position: { x: 64, y: 15, z: 24 },
+              rotation: { z: item.socketAnchorRotation },
+              normal: { x: 1, y: 0, z: 0 },
+              tangent: { x: 0, y: 1, z: 0 },
+            },
+          },
+        }),
+        part('plug', boxPrimitive({ size: { x: 44, y: 22, z: 22 } }), {
+          transform: { pivot: { x: 22, y: 11, z: 0 } },
+          anchors: {
+            in: {
+              id: 'in',
+              position: { x: 0, y: 11, z: 22 },
+              rotation: { z: item.plugAnchorRotation },
+              normal: { x: 1, y: 0, z: 0 },
+              tangent: { x: 0, y: 1, z: 0 },
+            },
+          },
+        }),
+      ], {
+        attachments: [attachWithOrientation('plug', 'in', 'socket', 'out')],
+      });
+
+      const scene = resolveScene(resolveModel(model));
+      const socket = scene.children[0].worldAnchors.out;
+      const plug = scene.children[1].worldAnchors.in;
+
+      expect(plug.position.x, item.id).toBeCloseTo(socket.position.x, 4);
+      expect(plug.position.y, item.id).toBeCloseTo(socket.position.y, 4);
+      expect(plug.position.z, item.id).toBeCloseTo(socket.position.z, 4);
+      expect(angleBetweenVec3(socket.normal!, plug.normal!), item.id).toBeLessThan(0.001);
+      expect(angleBetweenVec3(socket.tangent!, plug.tangent!), item.id).toBeLessThan(0.001);
+    }
+  });
 });

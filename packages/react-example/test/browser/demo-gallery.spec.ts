@@ -181,19 +181,27 @@ async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {
   }
   if (demo.id === 'anchor-orientation') {
     assertAnchorOrientationSpec(demo);
-    await expect(page.locator('[data-cube3d-path="anchor-orientation/socket"] [data-cube3d-anchor="out"]')).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
-    await expect(page.locator('[data-cube3d-path="anchor-orientation/plug"] [data-cube3d-anchor="in"]')).toHaveAttribute('data-cube3d-anchor-tangent', '0,1,0');
+    for (const caseId of anchorOrientationCaseIds) {
+      await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socket"] [data-cube3d-anchor="out"]`)).toHaveAttribute('data-cube3d-anchor-normal', '1,0,0');
+      await expect(page.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plug"] [data-cube3d-anchor="in"]`)).toHaveAttribute('data-cube3d-anchor-tangent', '0,1,0');
+      await expectProjectedAnchorDistance(page, `anchor-orientation/${caseId}/socket`, 'out', `anchor-orientation/${caseId}/plug`, 'in', 2);
+    }
   }
   if (demo.id === 'pivot-origin') {
     assertPivotSpec(demo);
-    await expect(page.locator('[data-cube3d-path="pivot-origin/door"]')).toHaveAttribute('data-cube3d-pivot', '0,24,0');
-    await expect(page.locator('[data-cube3d-path="pivot-origin/door"] > [data-cube3d-pivot-marker]')).toHaveCount(1);
-    const transformOrigin = await page.locator('[data-cube3d-path="pivot-origin/door"]').evaluate((element) => getComputedStyle(element).transformOrigin);
-    expect(transformOrigin).toContain('0px 24px');
+    for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
+      const path = `pivot-origin/${caseId}/door`;
+      await expect(page.locator(`[data-cube3d-path="${path}"]`)).toHaveAttribute('data-cube3d-pivot', pivot.join(','));
+      await expect(page.locator(`[data-cube3d-path="${path}"] > [data-cube3d-pivot-marker]`)).toHaveCount(1);
+      const transformOrigin = await page.locator(`[data-cube3d-path="${path}"]`).evaluate((element) => getComputedStyle(element).transformOrigin);
+      expect(transformOrigin, `${path} CSS transform-origin`).toContain(`${pivot[0]}px ${pivot[1]}px`);
+      await expectProjectedAnchorDistance(page, path, 'handle', `pivot-origin/${caseId}/handle`, 'mount', 2);
+    }
   }
   if (demo.id === 'world-bounds') {
     assertWorldBoundsSpec(demo);
-    await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(2);
+    await expect(page.locator('[data-cube3d-model="bounds-stack"]')).toHaveCount(3);
+    await expect(page.locator('[data-cube3d-model="bounds-nested-case"]')).toHaveCount(1);
   }
 }
 
@@ -303,28 +311,49 @@ async function expectSolidTextReferenceFonts(page: Page, expectedRows: Array<{ p
   }
 }
 
+const anchorOrientationCaseIds = ['straightCase', 'rotatedCase', 'parentRotatedCase'] as const;
+const pivotCasePivots: Record<string, [number, number, number]> = {
+  centerPivotCase: [46, 24, 0],
+  leftHingeCase: [0, 24, 0],
+  topHingeCase: [46, 0, 0],
+};
+const worldBoundsCasePaths = [
+  'world-bounds/translatedStack',
+  'world-bounds/rotatedStack',
+  'world-bounds/nestedScaledStack',
+  'world-bounds/nestedScaledStack/innerStack',
+  'world-bounds/outerMarker',
+] as const;
+
 function assertAnchorOrientationSpec(demo: DemoSpec) {
   const world = resolveScene(createSceneFromSpec(demo));
-  const socket = findWorldNode(world, 'anchor-orientation/socket')?.worldAnchors.out;
-  const plug = findWorldNode(world, 'anchor-orientation/plug')?.worldAnchors.in;
-  expect(socket, 'socket anchor should resolve').toBeTruthy();
-  expect(plug, 'plug anchor should resolve').toBeTruthy();
-  expect(plug!.position.x).toBeCloseTo(socket!.position.x, 3);
-  expect(plug!.position.y).toBeCloseTo(socket!.position.y, 3);
-  expect(plug!.position.z).toBeCloseTo(socket!.position.z, 3);
-  expect(angleBetweenVec3(socket!.normal!, plug!.normal!)).toBeLessThan(0.001);
-  expect(angleBetweenVec3(socket!.tangent!, plug!.tangent!)).toBeLessThan(0.001);
+  for (const caseId of anchorOrientationCaseIds) {
+    const socket = findWorldNode(world, `anchor-orientation/${caseId}/socket`)?.worldAnchors.out;
+    const plug = findWorldNode(world, `anchor-orientation/${caseId}/plug`)?.worldAnchors.in;
+    expect(socket, `${caseId} socket anchor should resolve`).toBeTruthy();
+    expect(plug, `${caseId} plug anchor should resolve`).toBeTruthy();
+    expect(plug!.position.x, `${caseId} x`).toBeCloseTo(socket!.position.x, 3);
+    expect(plug!.position.y, `${caseId} y`).toBeCloseTo(socket!.position.y, 3);
+    expect(plug!.position.z, `${caseId} z`).toBeCloseTo(socket!.position.z, 3);
+    expect(angleBetweenVec3(socket!.normal!, plug!.normal!), `${caseId} normal alignment`).toBeLessThan(0.001);
+    expect(angleBetweenVec3(socket!.tangent!, plug!.tangent!), `${caseId} tangent alignment`).toBeLessThan(0.001);
+  }
 }
 
 function assertPivotSpec(demo: DemoSpec) {
   const world = resolveScene(createSceneFromSpec(demo));
-  const door = findWorldNode(world, 'pivot-origin/door');
-  const hinge = door?.worldAnchors.hinge;
-  expect(door?.node.transform.pivot).toEqual({ x: 0, y: 24, z: 0 });
-  expect(hinge?.position.x).toBeCloseTo(132, 3);
-  expect(hinge?.position.y).toBeCloseTo(139, 3);
-  expect(door?.worldBounds?.max.x).toBeGreaterThan(door?.worldBounds?.min.x ?? 0);
-  expect(door?.worldBounds?.max.y).toBeGreaterThan(door?.worldBounds?.min.y ?? 0);
+  for (const [caseId, pivot] of Object.entries(pivotCasePivots)) {
+    const door = findWorldNode(world, `pivot-origin/${caseId}/door`);
+    const handle = findWorldNode(world, `pivot-origin/${caseId}/handle`);
+    const doorHandle = door?.worldAnchors.handle;
+    const handleMount = handle?.worldAnchors.mount;
+    expect(door?.node.transform.pivot, `${caseId} pivot`).toEqual({ x: pivot[0], y: pivot[1], z: pivot[2] });
+    expect(door?.worldBounds?.max.x, `${caseId} bounds x`).toBeGreaterThan(door?.worldBounds?.min.x ?? 0);
+    expect(door?.worldBounds?.max.y, `${caseId} bounds y`).toBeGreaterThan(door?.worldBounds?.min.y ?? 0);
+    expect(handleMount?.position.x, `${caseId} handle x`).toBeCloseTo(doorHandle!.position.x, 3);
+    expect(handleMount?.position.y, `${caseId} handle y`).toBeCloseTo(doorHandle!.position.y, 3);
+    expect(handleMount?.position.z, `${caseId} handle z`).toBeCloseTo(doorHandle!.position.z, 3);
+  }
 }
 
 function assertWorldBoundsSpec(demo: DemoSpec) {
@@ -336,11 +365,31 @@ function assertWorldBoundsSpec(demo: DemoSpec) {
     expectFiniteBounds(path, row!.bounds!);
   }
   const root = byPath.get('world-bounds');
-  const left = byPath.get('world-bounds/leftStack');
-  const right = byPath.get('world-bounds/rightStack');
-  expect(root?.size?.x).toBeGreaterThan(left?.size?.x ?? 0);
-  expect(root?.size?.x).toBeGreaterThan(right?.size?.x ?? 0);
-  expect(left?.center?.x).toBeLessThan(right?.center?.x ?? 0);
+  for (const path of worldBoundsCasePaths) {
+    const item = byPath.get(path);
+    expect(root?.size?.x, `root should cover ${path} width`).toBeGreaterThanOrEqual(item?.size?.x ?? Number.POSITIVE_INFINITY);
+    expect(root?.size?.y, `root should cover ${path} height`).toBeGreaterThanOrEqual(item?.size?.y ?? Number.POSITIVE_INFINITY);
+    expect(root?.size?.z, `root should cover ${path} depth`).toBeGreaterThanOrEqual(item?.size?.z ?? Number.POSITIVE_INFINITY);
+    expect(rootContains(root?.bounds, item?.bounds), `root bounds should contain ${path}`).toBe(true);
+  }
+  const translated = byPath.get('world-bounds/translatedStack');
+  const rotated = byPath.get('world-bounds/rotatedStack');
+  const nested = byPath.get('world-bounds/nestedScaledStack');
+  expect(translated?.center?.x).toBeLessThan(rotated?.center?.x ?? 0);
+  expect(rotated?.center?.x).toBeLessThan(nested?.center?.x ?? 0);
+}
+
+function rootContains(
+  root?: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } },
+  child?: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } },
+) {
+  if (!root || !child) return false;
+  return root.min.x <= child.min.x
+    && root.min.y <= child.min.y
+    && root.min.z <= child.min.z
+    && root.max.x >= child.max.x
+    && root.max.y >= child.max.y
+    && root.max.z >= child.max.z;
 }
 
 function expectFiniteBounds(path: string, bounds: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }) {

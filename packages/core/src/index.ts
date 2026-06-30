@@ -498,12 +498,8 @@ export function resolveModel(model: ModelDefinition, id = model.name): ModelNode
       const nextRotation = modelAttachment.mode === 'position-orientation'
         ? addVec3(parentTransform.rotation, subVec3(vec3(parentAnchor.rotation), vec3(childAnchor.rotation)))
         : childTransform.rotation;
-      const parentAnchorWorld = modelAttachment.mode === 'position-orientation'
-        ? transformPoint(transformToMat4(parentTransform), parentAnchor.position)
-        : addVec3(parentTransform.position, scaleVec3(parentAnchor.position, parentTransform.scale));
-      const childAnchorOffset = modelAttachment.mode === 'position-orientation'
-        ? transformPoint(transformToMat4({ ...childTransform, position: ZERO_VEC3, rotation: nextRotation }), childAnchor.position)
-        : scaleVec3(childAnchor.position, childTransform.scale);
+      const parentAnchorWorld = transformPoint(transformToMat4(parentTransform), parentAnchor.position);
+      const childAnchorOffset = transformPoint(transformToMat4({ ...childTransform, position: ZERO_VEC3, rotation: nextRotation }), childAnchor.position);
       const nextPosition = subVec3(parentAnchorWorld, childAnchorOffset);
       if (!sameVec3(nextPosition, childTransform.position) || !sameVec3(nextRotation, childTransform.rotation)) {
         transforms.set(child.id, { ...childTransform, position: nextPosition, rotation: nextRotation });
