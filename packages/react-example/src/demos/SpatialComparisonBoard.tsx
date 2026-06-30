@@ -12,14 +12,25 @@ import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } f
 import { CubeCandidate } from './CubeCandidate';
 import { createSceneFromSpec } from './sceneFactory';
 import { getDemoSpec, stageSize, type DemoCaseOption, type DemoSpec } from './registry';
+import type { DesignModelNode, DesignPrimitiveNode, DesignTransform } from './spec';
 import { ThreeReference } from './ThreeReference';
 
+type SpatialState = {
+  id: 'before' | 'after' | 'stress';
+  label: string;
+  intent: string;
+  spec: DemoSpec;
+};
+
 export function SpatialComparisonBoard({ baseSpec, cases }: { baseSpec: DemoSpec; cases: DemoCaseOption[] }) {
-  const caseSpecs = useMemo(() => cases.map((item) => ({ option: item, spec: getDemoSpec(baseSpec.id, item.id) })), [baseSpec.id, cases]);
+  const caseSpecs = useMemo(() => cases.map((item) => {
+    const spec = getDemoSpec(baseSpec.id, item.id);
+    return { option: item, spec, states: createSpatialStates(spec, item) };
+  }), [baseSpec.id, cases]);
 
   return (
     <section data-spatial-comparison={baseSpec.id} style={boardStyle}>
-      {caseSpecs.map(({ option, spec }) => {
+      {caseSpecs.map(({ option, spec, states }) => {
         const result = evaluateSpatialCase(spec, option);
         return (
           <article key={option.id} data-spatial-case-card={option.id} style={cardStyle}>
@@ -36,13 +47,28 @@ export function SpatialComparisonBoard({ baseSpec, cases }: { baseSpec: DemoSpec
               </span>
             </header>
 
-            <div style={miniPanelsStyle}>
-              <MiniPanel label="WebGL" kind="reference">
-                <ThreeReference spec={spec} />
-              </MiniPanel>
-              <MiniPanel label="Cube3D" kind="candidate">
-                <CubeCandidate spec={spec} />
-              </MiniPanel>
+            <div data-spatial-state-grid={option.id} style={stateGridStyle}>
+              <span aria-hidden="true" />
+              {states.map((state) => (
+                <div key={`${state.id}-label`} data-spatial-state-label={state.id} style={stateLabelStyle}>
+                  <strong>{state.label}</strong>
+                  <span>{state.intent}</span>
+                </div>
+              ))}
+
+              <div style={rendererLabelStyle}>WebGL</div>
+              {states.map((state) => (
+                <StatePanel key={`reference-${state.id}`} caseId={option.id} state={state} kind="reference">
+                  <ThreeReference spec={state.spec} />
+                </StatePanel>
+              ))}
+
+              <div style={rendererLabelStyle}>Cube3D</div>
+              {states.map((state) => (
+                <StatePanel key={`candidate-${state.id}`} caseId={option.id} state={state} kind="candidate">
+                  <CubeCandidate spec={state.spec} />
+                </StatePanel>
+              ))}
             </div>
 
             <p data-spatial-case-check={option.id} style={checkStyle}>{result.message}</p>
@@ -53,15 +79,179 @@ export function SpatialComparisonBoard({ baseSpec, cases }: { baseSpec: DemoSpec
   );
 }
 
-function MiniPanel({ children, label, kind }: { children: React.ReactNode; label: string; kind: 'reference' | 'candidate' }) {
+function StatePanel({ caseId, children, state, kind }: { caseId: string; children: React.ReactNode; state: SpatialState; kind: 'reference' | 'candidate' }) {
   return (
-    <figure style={miniFigureStyle}>
-      <figcaption style={miniCaptionStyle}>{label}</figcaption>
-      <div data-spatial-panel={kind} style={miniViewportStyle}>
-        <div style={miniScaleStyle}>{children}</div>
-      </div>
-    </figure>
+    <div
+      data-spatial-state-panel={kind}
+      data-spatial-state={state.id}
+      data-spatial-case={caseId}
+      style={miniViewportStyle}
+    >
+      <div style={miniScaleStyle}>{children}</div>
+    </div>
   );
+}
+
+function createSpatialStates(spec: DemoSpec, option: DemoCaseOption): SpatialState[] {
+  return [
+    {
+      id: 'before',
+      label: 'Before',
+      intent: beforeIntent(spec.id),
+      spec: createBeforeState(spec),
+    },
+    {
+      id: 'after',
+      label: 'After',
+      intent: option.expected,
+      spec: createAfterState(spec),
+    },
+    {
+      id: 'stress',
+      label: 'Stress',
+      intent: stressIntent(spec.id),
+      spec: createStressState(spec),
+    },
+  ];
+}
+
+function beforeIntent(id: DemoSpec['id']) {
+  if (id === 'anchor-orientation') return 'same objects before attachment is applied';
+  if (id === 'pivot-origin') return 'same object with zero rotation around its pivot';
+  if (id === 'world-bounds') return 'same stack before the tested world transform';
+  return 'initial state';
+}
+
+function stressIntent(id: DemoSpec['id']) {
+  if (id === 'anchor-orientation') return 'same attachment under an extra parent transform';
+  if (id === 'pivot-origin') return 'same pivot with a stronger rotation';
+  if (id === 'world-bounds') return 'same stack under a stronger transform context';
+  return 'stress state';
+}
+
+function createBeforeState(spec: DemoSpec) {
+  const next = cloneSpec(spec);
+  if (spec.id === 'anchor-orientation') {
+    const caseNode = selectedCaseModel(next);
+    caseNode.attachments = [];
+    return presentSpatialSpec(next);
+  }
+  if (spec.id === 'pivot-origin') {
+    const door = primitiveChild(selectedCaseModel(next), 'door');
+    door.transform = { ...door.transform, rotation: [0, 0, 0] };
+    return presentSpatialSpec(next);
+  }
+  if (spec.id === 'world-bounds') {
+    normalizeWorldBoundsCase(next);
+    return presentSpatialSpec(next);
+  }
+  return presentSpatialSpec(next);
+}
+
+function createAfterState(spec: DemoSpec) {
+  return presentSpatialSpec(cloneSpec(spec));
+}
+
+function createStressState(spec: DemoSpec) {
+  const next = cloneSpec(spec);
+  if (spec.id === 'anchor-orientation') {
+    const caseNode = selectedCaseModel(next);
+    caseNode.transform = combineTransform(caseNode.transform, {
+      rotation: [0, 0, ((caseNode.transform?.rotation?.[2] ?? 0) + 24)],
+      scale: scaleTuple(caseNode.transform?.scale, 1.12),
+    });
+    return presentSpatialSpec(next);
+  }
+  if (spec.id === 'pivot-origin') {
+    const door = primitiveChild(selectedCaseModel(next), 'door');
+    door.transform = { ...door.transform, rotation: [0, 0, -72] };
+    return presentSpatialSpec(next);
+  }
+  if (spec.id === 'world-bounds') {
+    stressWorldBoundsCase(next);
+    return presentSpatialSpec(next);
+  }
+  return presentSpatialSpec(next);
+}
+
+function cloneSpec(spec: DemoSpec): DemoSpec {
+  return JSON.parse(JSON.stringify(spec)) as DemoSpec;
+}
+
+function selectedCaseModel(spec: DemoSpec) {
+  const selectedCase = spec.selectedCase;
+  if (!selectedCase) throw new Error(`${spec.id} requires selectedCase for spatial state rendering.`);
+  const node = spec.root.children.find((child) => child.id === selectedCase);
+  if (!node || node.kind !== 'model') throw new Error(`${spec.id}/${selectedCase} should be a model node.`);
+  return node;
+}
+
+function presentSpatialSpec(spec: DemoSpec) {
+  if (!spec.selectedCase) return spec;
+  const caseNode = selectedCaseModel(spec);
+  const factor = presentationScale(spec.id);
+  caseNode.transform = {
+    ...caseNode.transform,
+    position: presentationPosition(spec.id),
+    scale: scaleTuple(caseNode.transform?.scale, factor),
+  };
+  return spec;
+}
+
+function presentationScale(id: DemoSpec['id']) {
+  if (id === 'pivot-origin') return 1.6;
+  if (id === 'world-bounds') return 1.65;
+  return 1.65;
+}
+
+function presentationPosition(id: DemoSpec['id']): [number, number, number] {
+  if (id === 'pivot-origin') return [18, 78, 10];
+  if (id === 'world-bounds') return [32, 98, 12];
+  return [22, 88, 12];
+}
+
+function primitiveChild(parent: DesignModelNode, id: string): DesignPrimitiveNode {
+  const node = parent.children.find((child) => child.id === id);
+  if (!node || node.kind === 'model') throw new Error(`${parent.id}/${id} should be a primitive node.`);
+  return node;
+}
+
+function modelChild(parent: DesignModelNode, id: string): DesignModelNode {
+  const node = parent.children.find((child) => child.id === id);
+  if (!node || node.kind !== 'model') throw new Error(`${parent.id}/${id} should be a model node.`);
+  return node;
+}
+
+function combineTransform(base: DesignTransform | undefined, patch: DesignTransform): DesignTransform {
+  return { ...base, ...patch };
+}
+
+function scaleTuple(scale: DesignTransform['scale'], factor: number): [number, number, number] {
+  const resolved = scale ?? [1, 1, 1];
+  return [resolved[0] * factor, resolved[1] * factor, resolved[2] * factor];
+}
+
+function normalizeWorldBoundsCase(spec: DemoSpec) {
+  const caseNode = selectedCaseModel(spec);
+  if (caseNode.id === 'nestedScaledStack') {
+    caseNode.transform = { ...caseNode.transform, rotation: [0, 0, 0], scale: [1, 1, 1] };
+    modelChild(caseNode, 'innerStack').transform = { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] };
+    return;
+  }
+  caseNode.transform = { ...caseNode.transform, rotation: [0, 0, 0], scale: [1, 1, 1] };
+}
+
+function stressWorldBoundsCase(spec: DemoSpec) {
+  const caseNode = selectedCaseModel(spec);
+  if (caseNode.id === 'translatedStack') {
+    caseNode.transform = { ...caseNode.transform, rotation: [0, 0, -18], scale: [1.12, 1.12, 1.12] };
+    return;
+  }
+  if (caseNode.id === 'rotatedStack') {
+    caseNode.transform = { ...caseNode.transform, rotation: [0, 0, -46], scale: [1.06, 1.06, 1.06] };
+    return;
+  }
+  caseNode.transform = { ...caseNode.transform, rotation: [0, 0, 12], scale: [1.34, 1.34, 1.34] };
 }
 
 function evaluateSpatialCase(spec: DemoSpec, option: DemoCaseOption) {
@@ -141,12 +331,12 @@ function formatSize(size?: { x: number; y: number; z: number }) {
   return `${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`;
 }
 
-const miniScale = 0.34;
+const miniScale = 0.52;
 
 const boardStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: 14,
+  gridTemplateColumns: '1fr',
+  gap: 16,
   alignItems: 'start',
 };
 
@@ -157,7 +347,6 @@ const cardStyle: React.CSSProperties = {
 };
 
 const cardHeaderStyle: React.CSSProperties = {
-  minHeight: 116,
   display: 'grid',
   gridTemplateColumns: '1fr auto',
   gap: 10,
@@ -175,6 +364,7 @@ const expectationStyle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.62)',
   fontSize: 12,
   lineHeight: 1.4,
+  maxWidth: 720,
 };
 
 const resultBadgeStyle: React.CSSProperties = {
@@ -197,23 +387,22 @@ const failBadgeStyle: React.CSSProperties = {
   border: '1px solid rgba(220, 70, 90, 0.45)',
 };
 
-const miniPanelsStyle: React.CSSProperties = {
+const stateGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 8,
-  padding: 10,
+  gridTemplateColumns: `56px repeat(3, ${Math.round(stageSize.width * miniScale)}px)`,
+  gap: '8px 10px',
+  padding: '10px 12px 12px',
+  alignItems: 'start',
+  overflowX: 'auto',
 };
 
-const miniFigureStyle: React.CSSProperties = {
-  margin: 0,
+const stateLabelStyle: React.CSSProperties = {
   display: 'grid',
-  gap: 5,
-};
-
-const miniCaptionStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.66)',
-  fontSize: 11,
-  fontWeight: 700,
+  gap: 3,
+  minHeight: 44,
+  color: 'rgba(255,255,255,0.72)',
+  fontSize: 10,
+  lineHeight: 1.25,
 };
 
 const miniViewportStyle: React.CSSProperties = {
@@ -222,6 +411,15 @@ const miniViewportStyle: React.CSSProperties = {
   overflow: 'hidden',
   border: '1px solid rgba(255,255,255,0.1)',
   background: '#20232f',
+};
+
+const rendererLabelStyle: React.CSSProperties = {
+  height: Math.round(stageSize.height * miniScale),
+  display: 'grid',
+  alignItems: 'center',
+  color: 'rgba(255,255,255,0.68)',
+  fontSize: 11,
+  fontWeight: 800,
 };
 
 const miniScaleStyle: React.CSSProperties = {
@@ -233,7 +431,6 @@ const miniScaleStyle: React.CSSProperties = {
 
 const checkStyle: React.CSSProperties = {
   margin: 0,
-  minHeight: 58,
   padding: '0 12px 12px',
   color: 'rgba(255,255,255,0.7)',
   fontSize: 12,

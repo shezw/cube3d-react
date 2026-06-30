@@ -77,7 +77,7 @@ async function comparePanels(page: Page, testInfo: TestInfo, demo: DemoSpec) {
   );
 }
 
-async function comparePanelLocators(referenceLocator: Locator, candidateLocator: Locator, testInfo: TestInfo, demo: DemoSpec) {
+async function comparePanelLocators(referenceLocator: Locator, candidateLocator: Locator, testInfo: TestInfo, demo: DemoSpec, label = '') {
   const reference = await panelScreenshot(referenceLocator);
   const candidate = await panelScreenshot(candidateLocator);
   const referencePng = PNG.sync.read(reference);
@@ -91,7 +91,7 @@ async function comparePanelLocators(referenceLocator: Locator, candidateLocator:
     includeAA: false,
   });
   const diffRatio = diffPixels / (referencePng.width * referencePng.height);
-  const prefix = `${demo.id}${demo.selectedCase ? `-${demo.selectedCase}` : ''}-${Math.round(diffRatio * 10000)}`;
+  const prefix = `${demo.id}${demo.selectedCase ? `-${demo.selectedCase}` : ''}${label ? `-${label}` : ''}-${Math.round(diffRatio * 10000)}`;
   const referencePath = testInfo.outputPath(`${prefix}-reference.png`);
   const candidatePath = testInfo.outputPath(`${prefix}-candidate.png`);
   const diffPath = testInfo.outputPath(`${prefix}-diff.png`);
@@ -132,6 +132,7 @@ async function assertDemoStructure(page: Page, demo: DemoSpec) {
 
 async function assertSpatialComparisonBoard(page: Page, testInfo: TestInfo, demo: DemoSpec) {
   const cases = getDemoCases(demo.id);
+  const states = ['before', 'after', 'stress'] as const;
   await expect(page.locator(`[data-spatial-comparison="${demo.id}"]`)).toBeVisible();
   await expect(page.locator('[data-demo-case-select]')).toHaveCount(0);
   await expect(page.locator('[data-spatial-case-card]')).toHaveCount(cases.length);
@@ -144,20 +145,26 @@ async function assertSpatialComparisonBoard(page: Page, testInfo: TestInfo, demo
     await expect(card).toContainText(option.expected);
     await expect(card.locator('[data-spatial-case-result="pass"]')).toHaveCount(1);
     await expect(card.locator(`[data-spatial-case-check="${option.id}"]`)).not.toBeEmpty();
-    await expect(card.locator('[data-spatial-panel="reference"]')).toHaveCount(1);
-    await expect(card.locator('[data-spatial-panel="candidate"]')).toHaveCount(1);
-    await expect(card.locator('[data-reference-canvas]')).toHaveAttribute('data-design-case', option.id);
-    await expect(card.locator('[data-candidate-stage]')).toHaveAttribute('data-design-case', option.id);
-    await expect(card.locator('[data-candidate-stage]')).toHaveAttribute('data-design-node-count', String(flattenDesignNodes(caseSpec.root).length));
+    await expect(card.locator('[data-spatial-state-panel="reference"]')).toHaveCount(states.length);
+    await expect(card.locator('[data-spatial-state-panel="candidate"]')).toHaveCount(states.length);
+    await expect(card.locator('[data-reference-canvas]')).toHaveCount(states.length);
+    await expect(card.locator('[data-candidate-stage]')).toHaveCount(states.length);
 
-    await comparePanelLocators(
-      card.locator('[data-spatial-panel="reference"]'),
-      card.locator('[data-spatial-panel="candidate"]'),
-      testInfo,
-      caseSpec,
-    );
+    for (const state of states) {
+      const referencePanel = card.locator(`[data-spatial-state-panel="reference"][data-spatial-state="${state}"]`);
+      const candidatePanel = card.locator(`[data-spatial-state-panel="candidate"][data-spatial-state="${state}"]`);
+      await expect(card.locator(`[data-spatial-state-label="${state}"]`), `${demo.id}/${option.id} should label ${state}`).toHaveCount(1);
+      await expect(referencePanel, `${demo.id}/${option.id} WebGL should render ${state}`).toHaveCount(1);
+      await expect(candidatePanel, `${demo.id}/${option.id} Cube3D should render ${state}`).toHaveCount(1);
+      await expect(referencePanel.locator('[data-reference-canvas]')).toHaveAttribute('data-design-case', option.id);
+      await expect(candidatePanel.locator('[data-candidate-stage]')).toHaveAttribute('data-design-case', option.id);
+      await expect(candidatePanel.locator('[data-candidate-stage]')).toHaveAttribute('data-design-node-count', String(flattenDesignNodes(caseSpec.root).length));
+
+      await comparePanelLocators(referencePanel, candidatePanel, testInfo, caseSpec, state);
+    }
+
     await assertOnlyCardCasePaths(card, demo, option.id);
-    await assertCaseGuides(card, demo.id, option.id);
+    await assertCaseGuides(card, demo.id, option.id, states.length);
     assertSpatialCaseSemantics(caseSpec);
   }
 }
@@ -173,22 +180,22 @@ async function assertOnlyCardCasePaths(card: Locator, demo: DemoSpec, selectedCa
   }
 }
 
-async function assertCaseGuides(card: Locator, demoId: string, caseId: string) {
+async function assertCaseGuides(card: Locator, demoId: string, caseId: string, expectedCount: number) {
   if (demoId === 'anchor-orientation') {
-    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/guidePlane"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socketAxis"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plugAxis"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/guidePlane"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socketAxis"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plugAxis"]`)).toHaveCount(expectedCount);
   }
   if (demoId === 'pivot-origin') {
-    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPlane"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotAxis"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPin"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPlane"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotAxis"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPin"]`)).toHaveCount(expectedCount);
   }
   if (demoId === 'world-bounds') {
     const stackPath = caseId === 'nestedScaledStack' ? 'world-bounds/nestedScaledStack/innerStack' : `world-bounds/${caseId}`;
-    await expect(card.locator(`[data-cube3d-path="${stackPath}/boundsFootprint"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="${stackPath}/localXAxis"]`)).toHaveCount(1);
-    await expect(card.locator(`[data-cube3d-path="${stackPath}/localYAxis"]`)).toHaveCount(1);
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/boundsFootprint"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/localXAxis"]`)).toHaveCount(expectedCount);
+    await expect(card.locator(`[data-cube3d-path="${stackPath}/localYAxis"]`)).toHaveCount(expectedCount);
   }
 }
 
