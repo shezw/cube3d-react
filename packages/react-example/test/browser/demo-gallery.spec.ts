@@ -181,10 +181,13 @@ async function assertOnlyCardCasePaths(card: Locator, demo: DemoSpec, selectedCa
 }
 
 async function assertCaseGuides(card: Locator, demoId: string, caseId: string, expectedCount: number) {
+  const rotationAxisPath = demoId === 'world-bounds' && caseId === 'nestedScaledStack'
+    ? 'world-bounds/nestedScaledStack/innerStack/rotationAxis'
+    : `${demoId}/${caseId}/rotationAxis`;
+  await expect(card.locator(`[data-cube3d-path="${rotationAxisPath}/axis"]`)).toHaveCount(expectedCount);
+
   if (demoId === 'anchor-orientation') {
     await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/guidePlane"]`)).toHaveCount(expectedCount);
-    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/socketAxis"]`)).toHaveCount(expectedCount);
-    await expect(card.locator(`[data-cube3d-path="anchor-orientation/${caseId}/plugAxis"]`)).toHaveCount(expectedCount);
   }
   if (demoId === 'pivot-origin') {
     await expect(card.locator(`[data-cube3d-path="pivot-origin/${caseId}/pivotPlane"]`)).toHaveCount(expectedCount);
