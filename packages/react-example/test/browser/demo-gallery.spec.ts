@@ -260,6 +260,28 @@ async function assertInteractiveWebSpaceBehavior(page: Page, demo: DemoSpec) {
     expect(baseTransformAfter).toBe(baseTransformBefore);
   }
 
+  if (demo.id === 'timeline-animation') {
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-status', 'idle');
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-time', '0.00');
+    await expect(page.locator('[data-cube3d-path="timeline-animation/liftCube"][data-cube3d-interactive]')).toHaveCount(0);
+    await expectLocalTranslateZ(page, 'timeline-animation/liftCube', expectedLocalZ(demo, 'timeline-animation/liftCube'));
+
+    await page.locator('[data-timeline-action="seek-mid"]').click();
+
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-time', '600.00');
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-progress', '0.5000');
+    await expectLocalTranslateZ(page, 'timeline-animation/liftCube', 86);
+    await expectNodeTransformContains(page, 'timeline-animation/liftCube', 'rotateZ(18deg)');
+    await expectNodeTransformContains(page, 'timeline-animation/swingDoor', 'rotateZ(-62deg)');
+    await expectNodeTransformContains(page, 'timeline-animation/pulseMarker', 'scale3d(1.35, 1.35, 1.35)');
+
+    await page.locator('[data-timeline-action="stop"]').click();
+
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-status', 'idle');
+    await expect(page.locator('[data-timeline-panel]')).toHaveAttribute('data-timeline-time', '0.00');
+    await expectLocalTranslateZ(page, 'timeline-animation/liftCube', expectedLocalZ(demo, 'timeline-animation/liftCube'));
+  }
+
   if (demo.id === 'interactive-object') {
     await expectPathInteractive(page, 'interactive-object/infoCube', false);
     await expectPathInteractive(page, 'interactive-object/htmlPanel', false);
@@ -367,6 +389,10 @@ async function expectPathInteractive(page: Page, path: string, expected: boolean
 
 async function nodeTransform(page: Page, path: string) {
   return page.locator(`[data-cube3d-path="${path}"]`).evaluate((element) => (element as HTMLElement).style.transform);
+}
+
+async function expectNodeTransformContains(page: Page, path: string, expected: string) {
+  expect(await nodeTransform(page, path), `${path} transform`).toContain(expected);
 }
 
 async function assertCandidateVisualRegressions(page: Page, demo: DemoSpec) {

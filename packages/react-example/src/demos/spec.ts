@@ -7,6 +7,7 @@
     @email   : hello@shezw.com
 */
 
+import type { TimelineClip } from '@cube3d/core';
 import { createSolidTextDemoNodes, solidTextDemoCharacterSet, solidTextDemoRows, type SolidTextEdgeMetadata, type SolidTextFaceMetadata, type SolidTextGlyphMetadata } from './solidText';
 import { defaultTypefaceFontId } from './typefaceFonts';
 
@@ -24,6 +25,7 @@ export type DemoId =
   | 'object-field'
   | 'camera-focus'
   | 'camera-scroll'
+  | 'timeline-animation'
   | 'interactive-object'
   | 'character-reaction'
   | 'content-callout'
@@ -186,6 +188,9 @@ export type DemoSpec = {
   cameraScroll?: {
     initial: DemoCameraState;
     sections: DemoCameraSection[];
+  };
+  timeline?: {
+    clip: TimelineClip;
   };
   contentBindings?: DemoContentBinding[];
   characterReaction?: {
@@ -813,6 +818,61 @@ export const demoSpecs: DemoSpec[] = [
         { id: 'middle', label: 'Middle', path: 'camera-scroll/middleCube', camera: { position: [-52, 24, 0], zoom: 1.28, origin: '50% 50%' } },
         { id: 'final', label: 'Final', path: 'camera-scroll/finalCube', camera: { position: [-112, 46, 0], zoom: 1.44, origin: '50% 50%' } },
       ],
+    },
+  },
+  {
+    id: 'timeline-animation',
+    title: 'Timeline Animation',
+    capability: 'path-keyed transform animation driven by a reusable timeline',
+    maxDiffRatio: 0.14,
+    root: {
+      id: 'timeline-animation',
+      kind: 'model',
+      modelName: 'timeline-animation',
+      children: [
+        box('base', [286, 166, 8], [67, 80, 230, 1], { transform: { position: [32, 76, 0] } }),
+        box('liftCube', [52, 52, 52], blue, { transform: { position: [72, 96, 14] } }),
+        box('swingDoor', [82, 20, 58], [240, 169, 80, 1], { transform: { position: [164, 98, 18], pivot: [0, 10, 0] } }),
+        box('pulseMarker', [34, 34, 34], [233, 120, 163, 1], { transform: { position: [252, 76, 24] } }),
+      ],
+    },
+    requiredPaths: ['timeline-animation/base', 'timeline-animation/liftCube', 'timeline-animation/swingDoor', 'timeline-animation/pulseMarker'],
+    projectionPaths: ['timeline-animation/base', 'timeline-animation/liftCube', 'timeline-animation/swingDoor', 'timeline-animation/pulseMarker'],
+    modelCounts: { 'timeline-animation': 1 },
+    timeline: {
+      clip: {
+        id: 'timeline-main',
+        duration: 1200,
+        tracks: [
+          {
+            targetPath: 'timeline-animation/liftCube',
+            easing: 'ease-in-out',
+            keyframes: [
+              { at: 0, transform: { position: { z: 14 }, rotation: { z: 0 } } },
+              { at: 600, transform: { position: { z: 86 }, rotation: { z: 18 } } },
+              { at: 1200, transform: { position: { z: 14 }, rotation: { z: 0 } } },
+            ],
+          },
+          {
+            targetPath: 'timeline-animation/swingDoor',
+            easing: 'ease-in-out',
+            keyframes: [
+              { at: 0, transform: { rotation: { z: 0 } } },
+              { at: 600, transform: { rotation: { z: -62 } } },
+              { at: 1200, transform: { rotation: { z: 0 } } },
+            ],
+          },
+          {
+            targetPath: 'timeline-animation/pulseMarker',
+            easing: 'ease-in-out',
+            keyframes: [
+              { at: 0, transform: { scale: { x: 1, y: 1, z: 1 } } },
+              { at: 600, transform: { scale: { x: 1.35, y: 1.35, z: 1.35 } } },
+              { at: 1200, transform: { scale: { x: 1, y: 1, z: 1 } } },
+            ],
+          },
+        ],
+      },
     },
   },
   {

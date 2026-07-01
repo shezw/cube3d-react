@@ -9,7 +9,7 @@
 
 import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
-import { Camera3D, type Camera3DState, Model3D, resolveMotionPreset, Scene3D, Space3D, useCamera3D } from '@cube3d/react';
+import { Camera3D, type Camera3DState, Model3D, resolveMotionPreset, Scene3D, Space3D, useCamera3D, useTimeline3D } from '@cube3d/react';
 import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 import type { DemoCameraState, DesignPrimitiveNode } from './spec';
@@ -17,6 +17,7 @@ import type { DemoCameraState, DesignPrimitiveNode } from './spec';
 export function CubeCandidate({ spec }: { spec: DemoSpec }) {
   const model = useMemo(() => createSceneFromSpec(spec), [spec]);
   const designNodeCount = useMemo(() => countNodes(spec.root), [spec]);
+  const timeline = useTimeline3D(spec.timeline?.clip ?? emptyTimelineClip);
 
   return (
     <div
@@ -28,19 +29,28 @@ export function CubeCandidate({ spec }: { spec: DemoSpec }) {
       style={candidateShellStyle}
     >
       <Scene3D perspective={100000} origin="50% 50%" style={{ width: stageSize.width, height: stageSize.height }}>
-        <CandidateCameraFrame spec={spec} model={model} />
+        <CandidateCameraFrame spec={spec} model={model} timeline={timeline} />
       </Scene3D>
+      {spec.timeline ? <TimelinePanel timeline={timeline} duration={spec.timeline.clip.duration} /> : null}
     </div>
   );
 }
 
-function CandidateCameraFrame({ spec, model }: { spec: DemoSpec; model: SceneNode }) {
+function CandidateCameraFrame({
+  spec,
+  model,
+  timeline,
+}: {
+  spec: DemoSpec;
+  model: SceneNode;
+  timeline: ReturnType<typeof useTimeline3D>;
+}) {
   const camera = useCamera3D(initialCameraState(spec));
 
   return (
     <Camera3D state={camera.state}>
       <Space3D position={{ x: 178, y: 86, z: 0 }} rotation={{ x: 58, z: -34 }} size={{ x: 300, y: 230, z: 180 }}>
-        <CandidateContent spec={spec} model={model} camera={camera} />
+        <CandidateContent spec={spec} model={model} camera={camera} timeline={timeline} />
       </Space3D>
     </Camera3D>
   );
@@ -50,10 +60,12 @@ function CandidateContent({
   spec,
   model,
   camera,
+  timeline,
 }: {
   spec: DemoSpec;
   model: SceneNode;
   camera: ReturnType<typeof useCamera3D>;
+  timeline: ReturnType<typeof useTimeline3D>;
 }) {
   const [activePath, setActivePath] = useState(spec.callout?.initialPath ?? spec.contentBindings?.[0]?.path ?? 'none');
   const [clicked, setClicked] = useState(false);
@@ -136,7 +148,10 @@ function CandidateContent({
         model={model}
         nodeFaceContent={nodeFaceContent}
         nodeFaceStyle={(node, face, index) => nodeFaceStyle(spec, node, face, index, { clicked, hovered })}
-        nodeTransformOverride={(node, path) => nodeTransformOverride(node, path, { feedbackPath, hoveredPath, feedbackTargets, characterState }, spec)}
+        nodeTransformOverride={(node, path) => mergeTransformFragments(
+          spec.timeline ? timeline.nodeTransformOverride(node, path) : undefined,
+          nodeTransformOverride(node, path, { feedbackPath, hoveredPath, feedbackTargets, characterState }, spec),
+        )}
         interactivePaths={hasSemanticInteraction ? interactivePaths : undefined}
         onNodeClick={hasSemanticInteraction ? (event) => {
           setFeedbackPath(feedbackTargets.has(event.path) ? event.path : 'none');
@@ -299,6 +314,50 @@ function semanticInteractionPaths(spec: DemoSpec) {
     spec.characterReaction?.triggerPath,
   ].filter(Boolean) as string[];
   return Array.from(new Set(paths));
+}
+
+function mergeTransformFragments(...fragments: Array<ReturnType<typeof nodeTransformOverride> | undefined>) {
+  const result = fragments.reduce((merged, fragment) => {
+    if (!fragment) return merged;
+    return {
+      position: fragment.position || merged.position
+        ? { ...merged.position, ...fragment.position }
+        : undefined,
+      rotation: fragment.rotation || merged.rotation
+        ? { ...merged.rotation, ...fragment.rotation }
+        : undefined,
+      scale: fragment.scale || merged.scale
+        ? { ...merged.scale, ...fragment.scale }
+        : undefined,
+      pivot: fragment.pivot || merged.pivot
+        ? { ...merged.pivot, ...fragment.pivot }
+        : undefined,
+    };
+  }, {} as NonNullable<ReturnType<typeof nodeTransformOverride>>);
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function TimelinePanel({
+  timeline,
+  duration,
+}: {
+  timeline: ReturnType<typeof useTimeline3D>;
+  duration: number;
+}) {
+  return (
+    <div
+      data-timeline-panel
+      data-timeline-status={timeline.status}
+      data-timeline-time={timeline.time.toFixed(2)}
+      data-timeline-progress={timeline.evaluation.state.progress.toFixed(4)}
+      style={timelinePanelStyle}
+    >
+      <button type="button" data-timeline-action="play" style={timelineButtonStyle} onClick={timeline.play}>Play</button>
+      <button type="button" data-timeline-action="pause" style={timelineButtonStyle} onClick={timeline.pause}>Pause</button>
+      <button type="button" data-timeline-action="seek-mid" style={timelineButtonStyle} onClick={() => timeline.seek(duration / 2)}>Mid</button>
+      <button type="button" data-timeline-action="stop" style={timelineButtonStyle} onClick={timeline.stop}>Stop</button>
+    </div>
+  );
 }
 
 function CameraScrollRail({
@@ -557,6 +616,35 @@ const contentPanelStyle: React.CSSProperties = {
   background: 'rgba(18,22,36,0.78)',
   border: '1px solid rgba(255,255,255,0.18)',
   pointerEvents: 'none',
+};
+
+const timelinePanelStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: 10,
+  bottom: 12,
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 52px)',
+  gap: 6,
+  padding: 8,
+  background: 'rgba(18,22,36,0.72)',
+  border: '1px solid rgba(255,255,255,0.18)',
+  pointerEvents: 'auto',
+  zIndex: 10,
+};
+
+const timelineButtonStyle: React.CSSProperties = {
+  minHeight: 28,
+  border: '1px solid rgba(255,255,255,0.2)',
+  color: '#eef1ff',
+  background: 'rgba(255,255,255,0.12)',
+  fontWeight: 800,
+  cursor: 'pointer',
+};
+
+const emptyTimelineClip = {
+  id: 'empty',
+  duration: 0,
+  tracks: [],
 };
 
 const calloutLayerStyle: React.CSSProperties = {

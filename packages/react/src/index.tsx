@@ -24,12 +24,15 @@ import type {
   Size2,
   Size3,
   Transform3D,
+  TimelineClip,
+  TimelineEvaluation,
   Vec3,
   ViewState,
 } from '@cube3d/core';
 import {
   boxPrimitive,
   composeViewTransform,
+  evaluateTimeline,
   extrudePrimitive,
   getPrimitiveFaces,
   groupNode,
@@ -109,6 +112,7 @@ export type CameraMotionOptions = {
 };
 
 export type Camera3DMotionState = 'idle' | 'moving';
+export type Timeline3DStatus = 'idle' | 'playing' | 'paused' | 'done';
 
 export type Camera3DProps = {
   state: Camera3DState;
@@ -234,6 +238,103 @@ export function useCamera3D(initial: Camera3DState): {
   useEffect(() => () => cancelActiveMotion(), [cancelActiveMotion]);
 
   return { state, set, moveTo, reset };
+}
+
+export type Timeline3DOptions = {
+  initialTime?: number;
+  autoplay?: boolean;
+  playbackRate?: number;
+};
+
+export type Timeline3DController = {
+  time: number;
+  status: Timeline3DStatus;
+  evaluation: TimelineEvaluation;
+  transforms: Record<string, PartialTransform3D>;
+  nodeTransformOverride: NodeTransformOverride;
+  play: () => void;
+  pause: () => void;
+  stop: () => void;
+  seek: (time: number) => void;
+};
+
+export function useTimeline3D(clip: TimelineClip, options: Timeline3DOptions = {}): Timeline3DController {
+  const playbackRate = Math.max(0.0001, options.playbackRate ?? 1);
+  const [time, setTime] = useState(options.initialTime ?? 0);
+  const [status, setStatus] = useState<Timeline3DStatus>(options.autoplay ? 'playing' : 'idle');
+  const timeRef = useRef(time);
+
+  const setTimelineTime = useCallback((next: number) => {
+    const safeTime = Number.isFinite(next) ? next : 0;
+    timeRef.current = safeTime;
+    setTime(safeTime);
+  }, []);
+
+  const play = useCallback(() => {
+    const currentEvaluation = evaluateTimeline(clip, timeRef.current);
+    if (currentEvaluation.state.done) setTimelineTime(0);
+    setStatus('playing');
+  }, [clip, setTimelineTime]);
+
+  const pause = useCallback(() => setStatus('paused'), []);
+
+  const stop = useCallback(() => {
+    setStatus('idle');
+    setTimelineTime(0);
+  }, [setTimelineTime]);
+
+  const seek = useCallback((next: number) => {
+    setTimelineTime(next);
+    if (status === 'done') setStatus('paused');
+  }, [setTimelineTime, status]);
+
+  useEffect(() => {
+    if (status !== 'playing') return undefined;
+    const endTime = Math.max(0, (clip.delay ?? 0) + clip.duration);
+    if (prefersReducedMotion()) {
+      setTimelineTime(endTime);
+      setStatus('done');
+      return undefined;
+    }
+
+    let frame: number | null = null;
+    const startedAt = now();
+    const startTime = timeRef.current;
+    const step = (timestamp: number) => {
+      const next = startTime + ((timestamp - startedAt) * playbackRate);
+      const evaluation = evaluateTimeline(clip, next);
+      const nextTime = evaluation.state.done ? endTime : next;
+      setTimelineTime(nextTime);
+      if (evaluation.state.done) {
+        setStatus('done');
+        return;
+      }
+      frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => {
+      if (frame != null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+    };
+  }, [clip, playbackRate, setTimelineTime, status]);
+
+  const evaluation = useMemo(() => evaluateTimeline(clip, time), [clip, time]);
+  const nodeTransformOverride = useCallback<NodeTransformOverride>(
+    (_node, path) => evaluation.transforms[path],
+    [evaluation],
+  );
+
+  return {
+    time,
+    status,
+    evaluation,
+    transforms: evaluation.transforms,
+    nodeTransformOverride,
+    play,
+    pause,
+    stop,
+    seek,
+  };
 }
 
 export type NodeHandle = {

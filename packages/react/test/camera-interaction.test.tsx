@@ -13,8 +13,8 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { boxPrimitive, modelNode, primitiveNode } from '@cube3d/core';
-import { Camera3D, type Cube3DEventPayload, Model3D, resolveMotionPreset, Scene3D, useCamera3D } from '../src';
+import { boxPrimitive, modelNode, primitiveNode, type TimelineClip } from '@cube3d/core';
+import { Camera3D, type Cube3DEventPayload, Model3D, resolveMotionPreset, Scene3D, useCamera3D, useTimeline3D } from '../src';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -208,6 +208,77 @@ describe('@cube3d/react camera and interaction contract', () => {
     expect(resolveMotionPreset('rotateLoop', { progress: 0.25 })).toEqual({ rotation: { z: 90 } });
   });
 
+  it('uses timeline evaluation as renderer-only node transform overrides', () => {
+    const cube = primitiveNode({
+      id: 'cube',
+      primitive: boxPrimitive({ size: { x: 20, y: 20, z: 20 } }),
+      transform: { position: { x: 4, y: 5, z: 6 } },
+    });
+    const model = modelNode({ id: 'scene', modelName: 'scene', children: [cube] });
+    const clip = timelineClip();
+    const api = { current: undefined as unknown as ReturnType<typeof useTimeline3D> };
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    function Harness() {
+      api.current = useTimeline3D(clip);
+      return (
+        <Scene3D>
+          <Model3D model={model} nodeTransformOverride={api.current.nodeTransformOverride} />
+          <span data-timeline-status={api.current.status} data-timeline-time={api.current.time} />
+        </Scene3D>
+      );
+    }
+
+    act(() => {
+      root?.render(<Harness />);
+    });
+
+    expect(container.innerHTML).toContain('translate3d(4px, 5px, 0px)');
+
+    act(() => {
+      api.current.seek(500);
+    });
+
+    expect(container.innerHTML).toContain('translate3d(4px, 5px, 30px)');
+    expect(container.innerHTML).toContain('rotateY(45deg)');
+    expect(cube.transform.position).toEqual({ x: 4, y: 5, z: 6 });
+  });
+
+  it('finishes timeline playback immediately when reduced motion is enabled', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    const api = { current: undefined as unknown as ReturnType<typeof useTimeline3D> };
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    function Harness() {
+      api.current = useTimeline3D(timelineClip());
+      return <span data-timeline-status={api.current.status} data-timeline-time={api.current.time} />;
+    }
+
+    act(() => {
+      root?.render(<Harness />);
+    });
+
+    await act(async () => {
+      api.current.play();
+    });
+
+    expect(container.innerHTML).toContain('data-timeline-status="done"');
+    expect(container.innerHTML).toContain('data-timeline-time="1000"');
+  });
+
   function renderCameraHarness() {
     const api = { current: undefined as unknown as ReturnType<typeof useCamera3D> };
     container = document.createElement('div');
@@ -230,5 +301,21 @@ describe('@cube3d/react camera and interaction contract', () => {
     });
 
     return api;
+  }
+
+  function timelineClip(): TimelineClip {
+    return {
+      id: 'react-test',
+      duration: 1000,
+      tracks: [
+        {
+          targetPath: 'scene/cube',
+          keyframes: [
+            { at: 0, transform: { position: { z: 0 }, rotation: { y: 0 } } },
+            { at: 1000, transform: { position: { z: 60 }, rotation: { y: 90 } } },
+          ],
+        },
+      ],
+    };
   }
 });

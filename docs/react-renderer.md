@@ -132,6 +132,28 @@ const lift = resolveMotionPreset('hoverLift', { active: true });
 
 Current presets include `hoverLift`, `pressDown`, `idleFloat`, `pulse`, `shake`, `reveal`, `openClose`, and `rotateLoop`. Presets return transform fragments; callers decide how to merge them with current model state.
 
+## Timeline Animation
+
+`useTimeline3D` evaluates a core `TimelineClip` over time and returns renderer-only transform overrides.
+
+```tsx
+import { Model3D, useTimeline3D } from '@cube3d/react';
+
+function AnimatedScene({ model, clip }) {
+  const timeline = useTimeline3D(clip);
+
+  return (
+    <>
+      <Model3D model={model} nodeTransformOverride={timeline.nodeTransformOverride} />
+      <button type="button" onClick={() => timeline.seek(500)}>Mid</button>
+      <button type="button" onClick={timeline.play}>Play</button>
+    </>
+  );
+}
+```
+
+The hook exposes `time`, `status`, `evaluation`, `play`, `pause`, `stop`, and `seek`. It honors reduced-motion preference by jumping to the end when playback starts. It does not mutate the core `SceneNode`; tests assert the DOM transform changes while the model transform stays intact.
+
 ## Per-Node Styling
 
 `Model3D` accepts `nodeFaceContent` and `nodeFaceStyle` for renderer-only presentation details without changing the core model.

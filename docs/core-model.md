@@ -9,6 +9,7 @@
 - Primitives: `boxPrimitive`, `planePrimitive`, `spritePrimitive`, `extrudePrimitive`.
 - Bounds and face descriptors: `getPrimitiveBounds`, `getPrimitiveFaces`, `resolveScene`.
 - View math: `ViewState`, `composeViewTransform`, `interpolateViewState`, `fitViewToBounds`, `projectBoundsToRect`.
+- Timeline math: `TimelineClip`, `evaluateTimeline`, `resolveTimelineState`.
 - Model composition: `defineModel`, `part`, `attach`, `resolveModel`.
 - Validation: `validateModel`, `validateScene`.
 
@@ -74,3 +75,30 @@ const projected = projectBoundsToRect(bounds, view);
 ```
 
 This proves the model layer can calculate focus-style view states and projected rectangles. It does not prove browser CSS rendering; the React renderer and browser tests cover that separately.
+
+## Timeline Math
+
+Core timeline helpers are pure calculations. They do not start timers, mutate scene nodes, or output CSS.
+
+```ts
+import { evaluateTimeline, type TimelineClip } from '@cube3d/core';
+
+const clip: TimelineClip = {
+  id: 'intro',
+  duration: 1000,
+  tracks: [
+    {
+      targetPath: 'scene/cube',
+      keyframes: [
+        { at: 0, transform: { position: { z: 0 } } },
+        { at: 500, transform: { position: { z: 80 } } },
+        { at: 1000, transform: { position: { z: 0 } } },
+      ],
+    },
+  ],
+};
+
+const frame = evaluateTimeline(clip, 500);
+```
+
+`frame.transforms` is keyed by model path. The React renderer can use those transform fragments as renderer-only overrides while the original core model remains unchanged.

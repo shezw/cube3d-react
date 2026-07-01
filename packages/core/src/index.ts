@@ -69,6 +69,45 @@ export type AnimationOptions = {
   easing?: Easing;
 };
 
+export type TimelineDirection = 'normal' | 'reverse' | 'alternate' | 'alternate-reverse';
+
+export type TimelineKeyframe = {
+  at: number;
+  transform: PartialTransform3D;
+  easing?: Easing;
+};
+
+export type TimelineTrack = {
+  targetPath: string;
+  keyframes: TimelineKeyframe[];
+  easing?: Easing;
+};
+
+export type TimelineClip = {
+  id: string;
+  duration: number;
+  tracks: TimelineTrack[];
+  delay?: number;
+  loop?: boolean;
+  direction?: TimelineDirection;
+  easing?: Easing;
+};
+
+export type TimelinePlaybackState = {
+  time: number;
+  localTime: number;
+  duration: number;
+  progress: number;
+  iteration: number;
+  direction: 'normal' | 'reverse';
+  done: boolean;
+};
+
+export type TimelineEvaluation = {
+  state: TimelinePlaybackState;
+  transforms: Record<string, PartialTransform3D>;
+};
+
 export type MaterialSolid = {
   kind: 'solid';
   rgba: [number, number, number, number];
@@ -714,6 +753,91 @@ export function interpolateViewState(a: ViewState, b: ViewState, t: number): Vie
   };
 }
 
+export function resolveTimelineState(clip: TimelineClip, time: number): TimelinePlaybackState {
+  const duration = Math.max(0, finiteNumber(clip.duration, 0));
+  const delay = Math.max(0, finiteNumber(clip.delay, 0));
+  const elapsed = Math.max(0, finiteNumber(time, 0) - delay);
+  const loop = clip.loop === true && duration > 0;
+  const rawIteration = duration > 0 ? Math.floor(elapsed / duration) : 0;
+  const iteration = loop ? rawIteration : Math.min(rawIteration, elapsed >= duration && duration > 0 ? 1 : 0);
+  const localTime = duration === 0
+    ? 0
+    : loop
+      ? elapsed % duration
+      : clamp(elapsed, 0, duration);
+  const resolvedDirection = resolveTimelineDirection(clip.direction ?? 'normal', iteration);
+  const rawProgress = duration === 0 ? 1 : localTime / duration;
+  const progress = resolvedDirection === 'reverse' ? 1 - rawProgress : rawProgress;
+  return {
+    time: finiteNumber(time, 0),
+    localTime: resolvedDirection === 'reverse' ? duration - localTime : localTime,
+    duration,
+    progress: clamp01(progress),
+    iteration,
+    direction: resolvedDirection,
+    done: !loop && elapsed >= duration,
+  };
+}
+
+export function evaluateTimeline(clip: TimelineClip, time: number): TimelineEvaluation {
+  const state = resolveTimelineState(clip, time);
+  const transforms: Record<string, PartialTransform3D> = {};
+  for (const track of clip.tracks) {
+    if (!track.targetPath || track.keyframes.length === 0) continue;
+    const transform = evaluateTimelineTrack(track, state.localTime, clip);
+    if (transform) transforms[track.targetPath] = transform;
+  }
+  return { state, transforms };
+}
+
+export function evaluateTimelineTrack(track: TimelineTrack, localTime: number, clip?: Pick<TimelineClip, 'easing'>): PartialTransform3D | undefined {
+  const keyframes = [...track.keyframes]
+    .filter((keyframe) => Number.isFinite(keyframe.at))
+    .sort((a, b) => a.at - b.at);
+  if (keyframes.length === 0) return undefined;
+  if (keyframes.length === 1 || localTime <= keyframes[0].at) return keyframes[0].transform;
+  const last = keyframes[keyframes.length - 1];
+  if (localTime >= last.at) return last.transform;
+
+  for (let index = 1; index < keyframes.length; index += 1) {
+    const previous = keyframes[index - 1];
+    const next = keyframes[index];
+    if (localTime < previous.at || localTime > next.at) continue;
+    const span = Math.max(0.0001, next.at - previous.at);
+    const progress = clamp01((localTime - previous.at) / span);
+    const easing = previous.easing ?? track.easing ?? clip?.easing ?? 'linear';
+    return interpolatePartialTransform(previous.transform, next.transform, easeTimelineProgress(easing, progress));
+  }
+  return last.transform;
+}
+
+export function interpolatePartialTransform(a: PartialTransform3D, b: PartialTransform3D, t: number): PartialTransform3D {
+  const progress = clamp01(t);
+  const position = interpolatePartialVec3(a.position, b.position, ZERO_VEC3, progress);
+  const rotation = interpolatePartialVec3(a.rotation, b.rotation, ZERO_VEC3, progress);
+  const scale = interpolatePartialVec3(a.scale, b.scale, UNIT_VEC3, progress);
+  const pivot = interpolatePartialVec3(a.pivot, b.pivot, ZERO_VEC3, progress);
+  return {
+    ...(position ? { position } : undefined),
+    ...(rotation ? { rotation } : undefined),
+    ...(scale ? { scale } : undefined),
+    ...(pivot ? { pivot } : undefined),
+  };
+}
+
+export function easeTimelineProgress(easing: Easing | undefined, t: number): number {
+  const progress = clamp01(t);
+  if (!easing || easing === 'linear') return progress;
+  if (easing === 'ease-in') return progress * progress;
+  if (easing === 'ease-out') return 1 - (1 - progress) * (1 - progress);
+  if (easing === 'ease-in-out' || easing === 'ease') {
+    return progress < 0.5
+      ? 2 * progress * progress
+      : 1 - ((-2 * progress + 2) ** 2) / 2;
+  }
+  return cubicBezierY(easing.cubicBezier, progress);
+}
+
 export function fitViewToBounds(bounds: Bounds3, options: FitViewOptions): ViewState {
   const size = boundsSize(bounds);
   const center = boundsCenter(bounds);
@@ -950,12 +1074,47 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function finiteNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value != null ? value : fallback;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
 function clamp01(value: number): number {
   return clamp(Number.isFinite(value) ? value : 0, 0, 1);
+}
+
+function resolveTimelineDirection(direction: TimelineDirection, iteration: number): 'normal' | 'reverse' {
+  if (direction === 'reverse') return 'reverse';
+  if (direction === 'alternate') return iteration % 2 === 0 ? 'normal' : 'reverse';
+  if (direction === 'alternate-reverse') return iteration % 2 === 0 ? 'reverse' : 'normal';
+  return 'normal';
+}
+
+function interpolatePartialVec3(
+  a: Partial<Vec3> | undefined,
+  b: Partial<Vec3> | undefined,
+  fallback: Vec3,
+  t: number,
+): Partial<Vec3> | undefined {
+  const result: Partial<Vec3> = {};
+  for (const axis of ['x', 'y', 'z'] as const) {
+    if (a?.[axis] == null && b?.[axis] == null) continue;
+    result[axis] = lerp(a?.[axis] ?? fallback[axis], b?.[axis] ?? fallback[axis], t);
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function cubicBezierY(points: [number, number, number, number], t: number): number {
+  const [, y1, , y2] = points;
+  const inverse = 1 - t;
+  return clamp01(
+    (3 * inverse * inverse * t * y1) +
+    (3 * inverse * t * t * y2) +
+    (t * t * t),
+  );
 }
 
 function clampColor(value: number): number {
