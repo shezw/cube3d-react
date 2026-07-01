@@ -10,10 +10,10 @@
 import React, { useMemo } from 'react';
 import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
 import { CubeCandidate } from './CubeCandidate';
+import { LazyThreeReference } from './LazyThreeReference';
 import { createSceneFromSpec } from './sceneFactory';
 import { getDemoSpec, stageSize, type DemoCaseOption, type DemoSpec } from './registry';
 import type { DesignModelNode, DesignPrimitiveNode, DesignTransform } from './spec';
-import { ThreeReference } from './ThreeReference';
 
 type SpatialState = {
   id: 'before' | 'after' | 'stress';
@@ -59,7 +59,7 @@ export function SpatialComparisonBoard({ baseSpec, cases }: { baseSpec: DemoSpec
               <div style={rendererLabelStyle}>WebGL</div>
               {states.map((state) => (
                 <StatePanel key={`reference-${state.id}`} caseId={option.id} state={state} kind="reference">
-                  <ThreeReference spec={state.spec} />
+                  <LazyThreeReference spec={state.spec} />
                 </StatePanel>
               ))}
 

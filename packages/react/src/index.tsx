@@ -16,7 +16,6 @@ import type {
   FaceMaterials,
   Keyframes,
   Material,
-  MaterialImage,
   MaterialSolid,
   PartialTransform3D,
   Primitive,
@@ -660,7 +659,6 @@ export type Sprite3DProps = Plane3DProps & {
 };
 
 export function Sprite3D({
-  alignToCamera: _alignToCamera,
   size,
   material,
   children,

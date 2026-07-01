@@ -35,7 +35,7 @@ Open a demo with `/?demo={id}`. The page renders a WebGL reference panel and a C
 
 ## Validation
 
-Run:
+Run the WebGL reference acceptance suite:
 
 ```bash
 pnpm test:webgl-reference
@@ -60,3 +60,5 @@ Artifacts on failure include:
 - candidate image
 - diff image
 - geometry report JSON
+
+For the complete pre-release verification path, run `pnpm test:all` from the workspace root. This includes package unit tests, production builds, browser structure checks, and this WebGL reference suite.

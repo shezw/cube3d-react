@@ -10,10 +10,10 @@
 import React, { useMemo, useState } from 'react';
 import { CubeCandidate } from './CubeCandidate';
 import { DemoDetails } from './DemoDetails';
+import { LazyThreeReference } from './LazyThreeReference';
 import { demoDefinitions, getDemoBaseSpec, getDemoCases, type DemoSpec } from './registry';
 import { createSolidTextDemoNodes } from './solidText';
 import { SpatialComparisonBoard } from './SpatialComparisonBoard';
-import { ThreeReference } from './ThreeReference';
 import { defaultTypefaceFontId, type TypefaceFontId, typefaceFontOptions } from './typefaceFonts';
 
 export function DemoGallery() {
@@ -95,7 +95,7 @@ export function DemoGallery() {
             <figure style={panelFrameStyle}>
               <figcaption style={captionStyle}>WebGL Reference</figcaption>
               <div data-validation-panel="reference" style={panelClipStyle}>
-                <ThreeReference spec={selectedSpec} />
+                <LazyThreeReference spec={selectedSpec} />
               </div>
             </figure>
             <figure style={panelFrameStyle}>

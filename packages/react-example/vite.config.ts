@@ -6,6 +6,22 @@ const workspacePackage = (name: string) => fileURLToPath(new URL(`../${name}/src
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replaceAll('\\', '/');
+
+          if (normalizedId.includes('/node_modules/three/')) {
+            return 'three';
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@cube3d/core': workspacePackage('core'),

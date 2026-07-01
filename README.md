@@ -65,6 +65,16 @@ Then open `http://127.0.0.1:5173/`. The character, controller, camera, and islan
 ```bash
 pnpm -r test -- --run
 pnpm -r run build
+pnpm test:browser
+pnpm test:webgl-reference
 ```
 
 The tests cover core transforms, bounds, primitive descriptors, anchors, scene validation, renderer DOM contracts, and example model composition.
+
+For a full pre-release pass, run:
+
+```bash
+pnpm test:all
+```
+
+`@cube3d/react-example` is private and is used as the acceptance demo. Three.js is used only in that validation layer; the published Cube3D packages render with HTML and CSS transforms, not WebGL.

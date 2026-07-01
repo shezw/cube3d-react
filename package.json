@@ -2,6 +2,7 @@
   "name": "cube3d-react-workspace",
   "private": true,
   "version": "0.0.1",
+  "type": "module",
   "description": "Monorepo workspace for a generic React 3D-ish library built on CSS transforms.",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
@@ -14,10 +15,13 @@
     "test:all": "pnpm -r test -- --run && pnpm -r run build && pnpm test:browser && pnpm test:webgl-reference"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.61.1",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "globals": "^17.7.0",
     "pixelmatch": "^7.2.0",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "typescript-eslint": "^8.62.1"
   }
 }
