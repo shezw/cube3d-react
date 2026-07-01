@@ -4,6 +4,14 @@ Cube3D is an HTML-based pseudo 3D scene library for React. It uses CSS 3D transf
 
 It is not WebGL and not a true 3D engine. The library does not currently provide real depth sorting, collision, clipping, lighting, or camera-plane boundary handling.
 
+<p align="center">
+  <img src="./docs/assets/cube3d-cover-scene-gallery.png" alt="Cube3D cover scene comparison between a Three.js reference and HTML/CSS candidate renderer" width="920">
+</p>
+
+<p align="center">
+  <img src="./docs/assets/cube3d-spatial-validation.png" alt="Cube3D spatial validation board showing anchor orientation cases across WebGL and CSS renderers" width="920">
+</p>
+
 ## Packages
 
 - `@shezw/cube3d`: public package for the React renderer.
