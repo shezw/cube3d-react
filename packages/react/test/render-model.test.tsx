@@ -1,10 +1,10 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { boxPrimitive, extrudePrimitive, modelNode, primitiveNode } from '@cube3d/core';
+import { boxPrimitive, extrudePrimitive, modelNode, primitiveNode } from '@shezw/cube3d/core';
 import { Model3D, Scene3D } from '../src';
 
-describe('@cube3d/react model rendering', () => {
+describe('@shezw/cube3d model rendering', () => {
   it('renders a core model as semantic DOM', () => {
     const model = modelNode({
       id: 'character',

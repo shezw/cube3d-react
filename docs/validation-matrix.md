@@ -16,7 +16,7 @@ Cube3D validation is layered. A passing build is only a package health check; it
 | Layer | Command | Proves | Does Not Prove |
 | --- | --- | --- | --- |
 | Core model tests | `pnpm --filter @cube3d/core test -- --run` | Transform math, primitive descriptors, bounds, anchors, model validation, resolver behavior | Browser CSS projection or DOM visibility |
-| Renderer contract tests | `pnpm --filter @cube3d/react test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, camera wrapper isolation, interaction payload metadata, core descriptor mapping | Pixel output or final example composition |
+| Renderer contract tests | `pnpm --filter @shezw/cube3d test -- --run` | React DOM nodes, paths, anchors, face indexes, layer indexes, camera wrapper isolation, interaction payload metadata, core descriptor mapping | Pixel output or final example composition |
 | Example model tests | `pnpm --filter @cube3d/react-example test -- --run` | Character/controller/cover scene models are semantic and anchor based | Browser layout, viewport scale, actual visual visibility |
 | Browser structure tests | `pnpm test:browser` | Real Chromium can render the example; model objects are visible; key projected anchors remain aligned | Pixel-perfect design matching or screenshot regression |
 | WebGL reference demos | `pnpm test:webgl-reference` | Cube3D demos preserve object-level projected geometry against simplified Three.js references generated from the same `DemoSpec`, and keep structural contracts | Production-grade visual parity with true 3D rendering |

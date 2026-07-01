@@ -62,13 +62,6 @@ importers:
         version: 1.6.1(@types/node@26.0.1)(jsdom@24.1.3)
 
   packages/react:
-    dependencies:
-      '@cube3d/core':
-        specifier: workspace:*
-        version: link:../core
-      '@cube3d/css-renderer':
-        specifier: workspace:*
-        version: link:../css-renderer
     devDependencies:
       '@types/react':
         specifier: ^18.3.12
@@ -97,12 +90,6 @@ importers:
 
   packages/react-example:
     dependencies:
-      '@cube3d/core':
-        specifier: workspace:*
-        version: link:../core
-      '@cube3d/react':
-        specifier: workspace:*
-        version: link:../react
       '@fontsource/dotgothic16':
         specifier: ^5.2.8
         version: 5.2.8
@@ -127,6 +114,9 @@ importers:
       '@fontsource/vt323':
         specifier: ^5.2.7
         version: 5.2.7
+      '@shezw/cube3d':
+        specifier: workspace:*
+        version: link:../react
       opentype.js:
         specifier: ^2.0.0
         version: 2.0.0

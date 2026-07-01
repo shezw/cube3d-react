@@ -8,8 +8,8 @@
 */
 
 import React, { useLayoutEffect, useMemo, useState } from 'react';
-import { type FaceDescriptor, type SceneNode } from '@cube3d/core';
-import { Camera3D, type Camera3DState, Model3D, resolveMotionPreset, Scene3D, Space3D, useCamera3D, useTimeline3D } from '@cube3d/react';
+import { type FaceDescriptor, type SceneNode } from '@shezw/cube3d/core';
+import { Camera3D, type Camera3DState, Model3D, resolveMotionPreset, Scene3D, Space3D, useCamera3D, useTimeline3D } from '@shezw/cube3d';
 import { createSceneFromSpec, findDesignNodeById, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 import type { DemoCameraState, DesignPrimitiveNode } from './spec';

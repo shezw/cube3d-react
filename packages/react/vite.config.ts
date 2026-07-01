@@ -14,9 +14,9 @@ const workspacePackage = (name: string) => fileURLToPath(new URL(`../${name}/src
 
 export default defineConfig({
   resolve: {
-    alias: {
-      '@cube3d/core': workspacePackage('core'),
-      '@cube3d/css-renderer': workspacePackage('css-renderer'),
-    },
+    alias: [
+      { find: '@shezw/cube3d/core', replacement: workspacePackage('core') },
+      { find: '@shezw/cube3d', replacement: workspacePackage('react') },
+    ],
   },
 });

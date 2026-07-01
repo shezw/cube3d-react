@@ -1,7 +1,7 @@
 {
   "name": "cube3d-react-workspace",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.4.0",
   "type": "module",
   "description": "Monorepo workspace for a generic React 3D-ish library built on CSS transforms.",
   "packageManager": "pnpm@9.0.0",

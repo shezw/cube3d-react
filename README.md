@@ -6,14 +6,14 @@ It is not WebGL and not a true 3D engine. The library does not currently provide
 
 ## Packages
 
-- `@cube3d/core`: pure model, math, scene graph, primitives, anchors, bounds, and validation.
-- `@cube3d/react`: renderer that turns core scene nodes into HTML/CSS.
-- `@cube3d/react-example`: model-driven cover scene used as an acceptance demo.
+- `@shezw/cube3d`: public package for the React renderer.
+- `@shezw/cube3d/core`: public subpath for pure model, math, scene graph, primitives, anchors, bounds, and validation.
+- `@cube3d/react-example`: private workspace package used as an acceptance demo.
 
 ## Minimal Box
 
 ```tsx
-import { Scene3D, Box3D } from '@cube3d/react';
+import { Scene3D, Box3D } from '@shezw/cube3d';
 
 export function Demo() {
   return (
@@ -32,7 +32,7 @@ export function Demo() {
 ## Model-Driven Character
 
 ```ts
-import { attach, boxPrimitive, defineModel, part, resolveModel, validateModel } from '@cube3d/core';
+import { attach, boxPrimitive, defineModel, part, resolveModel, validateModel } from '@shezw/cube3d/core';
 
 const body = part('body', boxPrimitive({ size: { x: 80, y: 70, z: 70 } }), {
   anchors: { neck: { id: 'neck', position: { x: 40, y: 0, z: 70 } } },
@@ -77,4 +77,4 @@ For a full pre-release pass, run:
 pnpm test:all
 ```
 
-`@cube3d/react-example` is private and is used as the acceptance demo. Three.js is used only in that validation layer; the published Cube3D packages render with HTML and CSS transforms, not WebGL.
+`@cube3d/react-example` is private and is used as the acceptance demo. Three.js is used only in that validation layer; the published `@shezw/cube3d` package renders with HTML and CSS transforms, not WebGL.

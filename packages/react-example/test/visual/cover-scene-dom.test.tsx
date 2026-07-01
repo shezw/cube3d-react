@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Model3D, Scene3D } from '@cube3d/react';
+import { Model3D, Scene3D } from '@shezw/cube3d';
 import { createCoverSceneNode } from '../../src/scene/models';
 
 describe('cover scene DOM contract', () => {

@@ -1,6 +1,6 @@
 # React Renderer
 
-`@cube3d/react` is the renderer. It turns core `SceneNode` values into HTML elements and CSS transforms.
+`@shezw/cube3d` is the renderer. It turns core `SceneNode` values into HTML elements and CSS transforms.
 
 ## Responsibilities
 
@@ -21,8 +21,8 @@
 ## Model API
 
 ```tsx
-import { boxPrimitive, modelNode, primitiveNode } from '@cube3d/core';
-import { Model3D, Scene3D } from '@cube3d/react';
+import { boxPrimitive, modelNode, primitiveNode } from '@shezw/cube3d/core';
+import { Model3D, Scene3D } from '@shezw/cube3d';
 
 const model = modelNode({
   id: 'demo-model',
@@ -45,7 +45,7 @@ export function Demo() {
 ## JSX Compatibility API
 
 ```tsx
-import { Box3D, Scene3D } from '@cube3d/react';
+import { Box3D, Scene3D } from '@shezw/cube3d';
 
 export function Demo() {
   return (
@@ -63,7 +63,7 @@ The JSX components internally create core primitives before rendering. Complex o
 `Camera3D` is a CSS view wrapper. It changes the wrapper transform and does not mutate the scene model or object transforms.
 
 ```tsx
-import { Camera3D, Model3D, Scene3D, Space3D, useCamera3D } from '@cube3d/react';
+import { Camera3D, Model3D, Scene3D, Space3D, useCamera3D } from '@shezw/cube3d';
 
 export function Demo({ model }: { model: SceneNode }) {
   const camera = useCamera3D({ position: { x: 0, y: 0, z: 0 }, zoom: 1 });
@@ -125,7 +125,7 @@ The payload includes stable `path`, `nodeId`, optional `modelName`, `primitiveKi
 The renderer also exports deterministic motion preset helpers:
 
 ```ts
-import { resolveMotionPreset } from '@cube3d/react';
+import { resolveMotionPreset } from '@shezw/cube3d';
 
 const lift = resolveMotionPreset('hoverLift', { active: true });
 ```
@@ -137,7 +137,7 @@ Current presets include `hoverLift`, `pressDown`, `idleFloat`, `pulse`, `shake`,
 `useTimeline3D` evaluates a core `TimelineClip` over time and returns renderer-only transform overrides.
 
 ```tsx
-import { Model3D, useTimeline3D } from '@cube3d/react';
+import { Model3D, useTimeline3D } from '@shezw/cube3d';
 
 function AnimatedScene({ model, clip }) {
   const timeline = useTimeline3D(clip);

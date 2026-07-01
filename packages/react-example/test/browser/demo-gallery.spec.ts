@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
+import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@shezw/cube3d/core';
 import { demoSpecs, getDemoCases, getDemoSpec, type DemoSpec } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';

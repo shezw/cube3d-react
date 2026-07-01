@@ -1,6 +1,6 @@
 {
   "name": "@cube3d/react-example",
-  "version": "0.0.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,8 +13,7 @@
     "generate:solid-typefaces": "node scripts/generate-solid-typefaces.mjs"
   },
   "dependencies": {
-    "@cube3d/core": "workspace:*",
-    "@cube3d/react": "workspace:*",
+    "@shezw/cube3d": "workspace:*",
     "@fontsource/dotgothic16": "^5.2.8",
     "@fontsource/jersey-10": "^5.2.8",
     "@fontsource/micro-5": "^5.2.7",

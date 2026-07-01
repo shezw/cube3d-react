@@ -9,7 +9,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@cube3d/core';
+import { getPrimitiveBounds, getPrimitiveFaces, type FaceDescriptor, type Material, type Primitive, type SceneNode } from '@shezw/cube3d/core';
 import { createSceneFromSpec, flattenDesignNodes } from './sceneFactory';
 import { stageSize, type DemoSpec } from './registry';
 import type { DesignNode, DesignModelNode, DesignPrimitiveNode, WebGLReferenceShape } from './spec';

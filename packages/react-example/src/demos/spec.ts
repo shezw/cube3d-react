@@ -7,7 +7,7 @@
     @email   : hello@shezw.com
 */
 
-import type { TimelineClip } from '@cube3d/core';
+import type { TimelineClip } from '@shezw/cube3d/core';
 import { createSolidTextDemoNodes, solidTextDemoCharacterSet, solidTextDemoRows, type SolidTextEdgeMetadata, type SolidTextFaceMetadata, type SolidTextGlyphMetadata } from './solidText';
 import { defaultTypefaceFontId } from './typefaceFonts';
 

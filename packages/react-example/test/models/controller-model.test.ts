@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveScene, validateModel } from '@cube3d/core';
+import { resolveScene, validateModel } from '@shezw/cube3d/core';
 import { controllerModel, createControllerNode } from '../../src/scene/models';
 
 describe('controller model', () => {

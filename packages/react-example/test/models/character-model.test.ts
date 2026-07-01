@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeTransform, resolveScene, validateModel, type Vec3, type WorldNode } from '@cube3d/core';
+import { normalizeTransform, resolveScene, validateModel, type Vec3, type WorldNode } from '@shezw/cube3d/core';
 import { characterModel, createCharacterNode } from '../../src/scene/models';
 
 describe('character model', () => {

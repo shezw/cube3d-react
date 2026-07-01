@@ -27,7 +27,7 @@ import type {
   TimelineEvaluation,
   Vec3,
   ViewState,
-} from '@cube3d/core';
+} from './core';
 import {
   boxPrimitive,
   composeViewTransform,
@@ -41,8 +41,8 @@ import {
   planePrimitive,
   primitiveNode,
   spritePrimitive,
-} from '@cube3d/core';
-import { easingToCss, ensureStyle, keyframesToCss } from '@cube3d/css-renderer';
+} from './core';
+import { easingToCss, ensureStyle, keyframesToCss } from './css-renderer';
 
 export type Scene3DProps = {
   children?: React.ReactNode;

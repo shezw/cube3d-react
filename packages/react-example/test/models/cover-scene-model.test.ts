@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveScene, validateModel, type WorldNode } from '@cube3d/core';
+import { resolveScene, validateModel, type WorldNode } from '@shezw/cube3d/core';
 import { coverSceneModel, createCoverSceneNode } from '../../src/scene/models';
 
 describe('cover scene model', () => {

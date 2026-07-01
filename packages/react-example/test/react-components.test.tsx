@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Box3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '@cube3d/react';
+import { Box3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '@shezw/cube3d';
 import { Character3D, characterMotionCss } from '../src/scene/Character3D';
 
 describe('React pseudo 3D scene', () => {

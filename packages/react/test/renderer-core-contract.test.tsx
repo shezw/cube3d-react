@@ -10,10 +10,10 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { boxPrimitive, getPrimitiveFaces, modelNode, primitiveNode } from '@cube3d/core';
+import { boxPrimitive, getPrimitiveFaces, modelNode, primitiveNode } from '@shezw/cube3d/core';
 import { Box3D, Model3D, Scene3D } from '../src';
 
-describe('@cube3d/react renderer and core contract', () => {
+describe('@shezw/cube3d renderer and core contract', () => {
   it('renders one DOM face for each core face descriptor with stable path and index', () => {
     const primitive = boxPrimitive({ size: { x: 32, y: 24, z: 16 } });
     const model = modelNode({

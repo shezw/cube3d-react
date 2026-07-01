@@ -21,7 +21,7 @@ import {
   type SceneNode,
   type Size2,
   type Size3,
-} from '@cube3d/core';
+} from '@shezw/cube3d/core';
 
 type Rgba = [number, number, number, number];
 

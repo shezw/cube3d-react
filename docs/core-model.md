@@ -1,6 +1,6 @@
 # Core Model
 
-`@cube3d/core` is a pure data and math package. It does not create React elements and does not output CSS strings.
+`@shezw/cube3d/core` is a pure data and math package. It does not create React elements and does not output CSS strings.
 
 ## Responsibilities
 
@@ -16,7 +16,7 @@
 ## Primitive Example
 
 ```ts
-import { boxPrimitive, getPrimitiveFaces, primitiveNode, resolveScene } from '@cube3d/core';
+import { boxPrimitive, getPrimitiveFaces, primitiveNode, resolveScene } from '@shezw/cube3d/core';
 
 const cube = primitiveNode({
   id: 'cube-a',
@@ -38,7 +38,7 @@ const world = resolveScene(cube);
 Anchors are named local points on a part or model. They let a design say "head.bottom attaches to neck.top" instead of relying on sibling coordinates.
 
 ```ts
-import { attach, boxPrimitive, defineModel, part, resolveModel } from '@cube3d/core';
+import { attach, boxPrimitive, defineModel, part, resolveModel } from '@shezw/cube3d/core';
 
 const neck = part('neck', boxPrimitive({ size: { x: 20, y: 20, z: 20 } }), {
   anchors: { top: { id: 'top', position: { x: 10, y: 0, z: 20 } } },
@@ -64,7 +64,7 @@ Use `validateModel(model)` before rendering external or generated designs. Curre
 Core view helpers are pure math. They do not know about CSS, DOM, React, or Three.js.
 
 ```ts
-import { createBounds, fitViewToBounds, projectBoundsToRect } from '@cube3d/core';
+import { createBounds, fitViewToBounds, projectBoundsToRect } from '@shezw/cube3d/core';
 
 const bounds = createBounds({ x: 0, y: 0, z: 0 }, { x: 240, y: 120, z: 80 });
 const view = fitViewToBounds(bounds, {
@@ -81,7 +81,7 @@ This proves the model layer can calculate focus-style view states and projected 
 Core timeline helpers are pure calculations. They do not start timers, mutate scene nodes, or output CSS.
 
 ```ts
-import { evaluateTimeline, type TimelineClip } from '@cube3d/core';
+import { evaluateTimeline, type TimelineClip } from '@shezw/cube3d/core';
 
 const clip: TimelineClip = {
   id: 'intro',

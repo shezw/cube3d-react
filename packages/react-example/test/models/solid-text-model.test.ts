@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findWorldNode, resolveScene } from '@cube3d/core';
+import { findWorldNode, resolveScene } from '@shezw/cube3d/core';
 import { demoSpecs } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import {

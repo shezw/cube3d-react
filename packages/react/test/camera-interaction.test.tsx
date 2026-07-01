@@ -13,12 +13,12 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { boxPrimitive, modelNode, primitiveNode, type TimelineClip } from '@cube3d/core';
+import { boxPrimitive, modelNode, primitiveNode, type TimelineClip } from '@shezw/cube3d/core';
 import { Camera3D, type Cube3DEventPayload, Model3D, resolveMotionPreset, Scene3D, useCamera3D, useTimeline3D } from '../src';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-describe('@cube3d/react camera and interaction contract', () => {
+describe('@shezw/cube3d camera and interaction contract', () => {
   let root: Root | undefined;
   let container: HTMLDivElement | undefined;
 

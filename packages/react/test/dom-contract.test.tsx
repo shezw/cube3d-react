@@ -1,10 +1,10 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { boxPrimitive, primitiveNode } from '@cube3d/core';
+import { boxPrimitive, primitiveNode } from '@shezw/cube3d/core';
 import { Node3D, Scene3D } from '../src';
 
-describe('@cube3d/react DOM contract', () => {
+describe('@shezw/cube3d DOM contract', () => {
   it('emits node, primitive, face, and anchor attributes', () => {
     const node = primitiveNode({
       id: 'anchored-box',

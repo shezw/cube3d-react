@@ -11,7 +11,7 @@ Complex Cube3D objects should be modeled as connected parts. The public pattern 
 ## Character Pattern
 
 ```ts
-import { attach, boxPrimitive, defineModel, part, resolveModel, validateModel } from '@cube3d/core';
+import { attach, boxPrimitive, defineModel, part, resolveModel, validateModel } from '@shezw/cube3d/core';
 
 const body = part('body', boxPrimitive({ size: { x: 84, y: 76, z: 76 } }), {
   anchors: {

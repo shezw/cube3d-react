@@ -23,11 +23,10 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@cube3d/core': workspacePackage('core'),
-      '@cube3d/css-renderer': workspacePackage('css-renderer'),
-      '@cube3d/react': workspacePackage('react'),
-    },
+    alias: [
+      { find: '@shezw/cube3d/core', replacement: workspacePackage('core') },
+      { find: '@shezw/cube3d', replacement: workspacePackage('react') },
+    ],
   },
   test: {
     exclude: ['test/browser/**', 'node_modules/**', 'dist/**'],

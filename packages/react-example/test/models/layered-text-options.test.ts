@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findWorldNode, resolveScene } from '@cube3d/core';
+import { findWorldNode, resolveScene } from '@shezw/cube3d/core';
 import { demoSpecs } from '../../src/demos/registry';
 import { createSceneFromSpec, flattenDesignNodes } from '../../src/demos/sceneFactory';
 import { layeredTextLayerCount, resolveLayeredTextDepth, resolveLayeredTextLayers } from '../../src/demos/layeredText';

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Box3D, Scene3D } from '../src';
 
-describe('@cube3d/react transform CSS', () => {
+describe('@shezw/cube3d transform CSS', () => {
   it('serializes transforms in the renderer layer', () => {
     const html = renderToStaticMarkup(
       <Scene3D>

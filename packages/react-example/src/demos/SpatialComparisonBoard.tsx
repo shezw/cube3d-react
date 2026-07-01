@@ -8,7 +8,7 @@
 */
 
 import React, { useMemo } from 'react';
-import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@cube3d/core';
+import { angleBetweenVec3, findWorldNode, getWorldBoundsReport, resolveScene } from '@shezw/cube3d/core';
 import { CubeCandidate } from './CubeCandidate';
 import { LazyThreeReference } from './LazyThreeReference';
 import { createSceneFromSpec } from './sceneFactory';

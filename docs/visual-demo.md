@@ -27,7 +27,7 @@ The main complex objects live in `packages/react-example/src/scene/models.ts`:
 The React components consume resolved model nodes:
 
 ```tsx
-import { Model3D, Scene3D } from '@cube3d/react';
+import { Model3D, Scene3D } from '@shezw/cube3d';
 import { createCoverSceneNode } from './scene/models';
 
 export function Cover() {

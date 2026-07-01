@@ -8,8 +8,8 @@
 */
 
 import React, { useMemo } from 'react';
-import type { FaceDescriptor, SceneNode } from '@cube3d/core';
-import { Model3D, Space3D } from '@cube3d/react';
+import type { FaceDescriptor, SceneNode } from '@shezw/cube3d/core';
+import { Model3D, Space3D } from '@shezw/cube3d';
 import { createCharacterNode } from './models';
 
 type Vec3Like = { x: number; y: number; z: number };

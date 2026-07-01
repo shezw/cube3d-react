@@ -9,7 +9,7 @@
 
 # WebGL Reference Demos
 
-The demo gallery compares Cube3D candidates against simplified Three.js references. Three.js is only used in the example validation layer; it is not part of `@cube3d/core` or `@cube3d/react`.
+The demo gallery compares Cube3D candidates against simplified Three.js references. Three.js is only used in the example validation layer; it is not part of `@shezw/cube3d/core` or `@shezw/cube3d`.
 
 The important rule is single source of truth: every WebGL reference scene and every Cube3D candidate scene is generated from `packages/react-example/src/demos/spec.ts`. The renderer layer is not allowed to maintain per-demo object coordinates. The shared pipeline is:
 

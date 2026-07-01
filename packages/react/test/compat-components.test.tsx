@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Box3D, Cube3D, Extrude3D, Plane3D, Scene3D, Space3D, Sprite3D } from '../src';
 
-describe('@cube3d/react compatibility components', () => {
+describe('@shezw/cube3d compatibility components', () => {
   it('keeps JSX box and cube APIs backed by primitive nodes', () => {
     const html = renderToStaticMarkup(
       <Scene3D>
